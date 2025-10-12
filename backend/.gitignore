@@ -9,5 +9,5 @@ mypy_cache/
 .pytest_cache/
 venv
 !*.example
-results/
+results/*/*.jpg
 !results/.gitkeep
