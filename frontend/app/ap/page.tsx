@@ -4,13 +4,13 @@ import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { IconUpload, IconBrain, IconTemperature } from "@tabler/icons-react";
 import { ResultImageCard } from "@/components/ResultImageCard";
 import { useState, useEffect } from "react";
-import { predictAPXray, BACKEND_URL, type PredictionResult } from "@/lib/api";
+import { predictAPXray, BACKEND_URL, type ApPredictionResult } from "@/lib/api";
 
 export default function Page() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PredictionResult | null>(null); 
+  const [result, setResult] = useState<ApPredictionResult | null>(null); 
 
   useEffect(() => {
     if (file) {
@@ -34,6 +34,20 @@ export default function Page() {
       setLoading(false);
     }
   };
+
+  const predictionImageSrc =
+    result?.pred_image
+      ? result.pred_image.startsWith("http")
+        ? result.pred_image
+        : `${BACKEND_URL}${result.pred_image}`
+      : "";
+
+  const heatmapImageSrc =
+    result?.heatmap_image
+      ? result.heatmap_image.startsWith("http")
+        ? result.heatmap_image
+        : `${BACKEND_URL}${result.heatmap_image}`
+      : "";
 
   return (
     <Container size="xxl" py="xl">
@@ -73,13 +87,13 @@ export default function Page() {
         <ResultImageCard
           icon={<IconBrain size={20} />}
           title="2 Predictions"
-          src={result ? `${BACKEND_URL}${result.pred_image}` : ""}
+          src={predictionImageSrc}
           caption="Detected vertebrae and confidence values"
         />
         <ResultImageCard
           icon={<IconTemperature size={20} />}
           title="3 Heatmap"
-          src={result ? `${BACKEND_URL}${result.heatmap_image}` : ""}
+          src={heatmapImageSrc}
           caption={`Cobb angle: ${result ? result.cobb_angle : "-"}°`}
         />
       </SimpleGrid>

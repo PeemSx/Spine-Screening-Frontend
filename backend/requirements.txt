@@ -1,21 +1,13 @@
-# --- Core Framework ---
 fastapi==0.115.0
 uvicorn==0.30.6
-
-# --- Deep Learning / Model ---
 torch==2.3.1
 torchvision==0.18.1
-
-# --- Image Processing ---
 opencv-python==4.10.0.84
 numpy==1.26.4
 Pillow==10.4.0
-
-# --- Utils ---
-python-multipart==0.0.9   # for FastAPI file upload
+python-multipart==0.0.9
 pydantic==2.8.2
 typing-extensions==4.12.2
-
-# --- Optional (safe, recommended) ---
-scipy==1.13.1        # for any geometric ops if added later
-matplotlib==3.9.1    # debugging or overlay visualization
+scipy==1.13.1        
+matplotlib==3.9.1   
+ultralytics==8.3.160

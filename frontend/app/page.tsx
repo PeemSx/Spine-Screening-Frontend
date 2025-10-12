@@ -234,7 +234,9 @@ export default function Home() {
                   </Text> */}
                       <Image
                         radius="md"
-                        src="https://raw.githubusercontent.com/mantinedev/mantine/master/.demo/images/bg-7.png"
+                        src="images/examples/ap/heatmap_sample.jpg"
+                        alt="Sample AP X-ray heatmap"
+                        style={{ maxHeight: 300, objectFit: 'contain' }}
                       />
                 </Stack>
               </Box>
