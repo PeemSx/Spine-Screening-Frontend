@@ -18,6 +18,7 @@ class Settings(BaseModel):
     def ensure_directories(self) -> None:
         """Create any directories that need to exist at runtime."""
         self.results_dir.mkdir(parents=True, exist_ok=True)
+        (self.results_dir / "ap").mkdir(parents=True, exist_ok=True)
         self.la_results_dir.mkdir(parents=True, exist_ok=True)
 
 

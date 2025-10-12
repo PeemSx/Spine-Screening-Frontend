@@ -30,7 +30,7 @@ def test_predict_ap_returns_stubbed_prediction(client):
     assert response.status_code == 200
     payload = response.json()
     assert payload["decoder"] == "stub"
-    assert payload["pred_image"].endswith("stub.jpg")
+    assert payload["pred_image"] == "/results/ap/stub.jpg"
 
 
 def test_predict_la_rejects_invalid_image(client):

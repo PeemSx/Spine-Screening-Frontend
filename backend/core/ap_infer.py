@@ -145,10 +145,11 @@ def run_inference(
 
     # ---------- save ----------
     results_dir = Path(results_dir)
-    results_dir.mkdir(parents=True, exist_ok=True)
+    ap_dir = results_dir / "ap"
+    ap_dir.mkdir(parents=True, exist_ok=True)
     base = os.urandom(4).hex()
-    overlay_path = results_dir / f"{base}_ap_pred.jpg"
-    heatmap_path = results_dir / f"{base}_ap_heatmap.jpg"
+    overlay_path = ap_dir / f"{base}_ap_pred.jpg"
+    heatmap_path = ap_dir / f"{base}_ap_heatmap.jpg"
     cv2.imwrite(str(overlay_path), overlay)
     cv2.imwrite(str(heatmap_path), heatmap_img)
 
@@ -158,7 +159,7 @@ def run_inference(
         "points": pts.tolist(),
         "boxes": boxes.tolist(),
         "scores": scores.tolist(),
-        "pred_image": f"/results/{overlay_path.name}",
-        "heatmap_image": f"/results/{heatmap_path.name}",
+        "pred_image": f"/results/ap/{overlay_path.name}",
+        "heatmap_image": f"/results/ap/{heatmap_path.name}",
         "abs_path": str(overlay_path),
     }
