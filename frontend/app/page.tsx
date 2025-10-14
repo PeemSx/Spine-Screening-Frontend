@@ -225,18 +225,13 @@ export default function Home() {
                 }}
               >
                 <Stack gap="md" align="center" ta="center">
-                  {/* <Text c="blue.7" fw={600} size="lg">
-                    X-ray Image Preview
-                  </Text>
-                  <Text c="gray.6" size="sm">
-                    Your uploaded X-ray images will be displayed here during
-                    analysis
-                  </Text> */}
                       <Image
                         radius="md"
                         src="images/examples/ap/heatmap_sample.jpg"
                         alt="Sample AP X-ray heatmap"
-                        style={{ maxHeight: 300, objectFit: 'contain' }}
+                        fit="contain"
+                        h={220}
+                        w={200}
                       />
                 </Stack>
               </Box>
