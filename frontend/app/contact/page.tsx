@@ -1,7 +1,7 @@
 'use client';
  
 import { Container, Stack, Title, Text } from '@mantine/core';
-import { TeamSection } from '@/components/TeamSection';
+import { TeamSection } from '@/components/contact/TeamSection';
 
 const developers = [
   {

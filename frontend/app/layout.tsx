@@ -1,7 +1,7 @@
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
 import '@mantine/core/styles.css';
 
-import NavBar from '@/components/NavBar';
+import NavBar from '@/components/layout/NavBar';
 
 export const metadata = {
   title: 'AI-Assisted Detection of OVCF',

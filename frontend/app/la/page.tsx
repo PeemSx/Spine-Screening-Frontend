@@ -2,7 +2,7 @@
 import { Container, SimpleGrid, Stack, Title, Text, Group, Paper, Button, Loader } from "@mantine/core";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { IconUpload, IconBrain } from "@tabler/icons-react";
-import { ResultImageCard } from "@/components/ResultImageCard";
+import { ResultImageCard } from "@/components/ap/ResultImageCard";
 import { useState, useEffect } from "react";
 import { predictLAXray, BACKEND_URL } from "@/lib/api";
 import type { LaPredictionResult } from "@/schemas/prediction";

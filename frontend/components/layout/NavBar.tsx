@@ -13,7 +13,6 @@ import {
   Group,
   Stack,
   Text,
-  Badge,
 } from '@mantine/core';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -151,7 +150,7 @@ export default function NavBar() {
       <Drawer
         opened={mobileOpened}
         onClose={closeMobile}
-        padding="md"
+        p="md"
         size="100%"
         title="Menu"
       >

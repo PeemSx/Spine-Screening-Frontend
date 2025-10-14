@@ -73,7 +73,7 @@ export function TeamSection({ title, description, members }: TeamSectionProps) {
             key={member.name}
             withBorder
             radius="lg"
-            padding="xl"
+            p="xl"
             styles={{
               root: {
                 position: 'relative',

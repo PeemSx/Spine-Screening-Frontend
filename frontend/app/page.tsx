@@ -7,6 +7,7 @@ import {
   Divider,
   Grid,
   Group,
+  Paper,
   Stack,
   Text,
   ThemeIcon,
@@ -214,27 +215,47 @@ export default function Home() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, md: 6 }}>
-              <Box
-                bg="blue.0"
+              <Paper
+                radius="xl"
                 p="xl"
+                withBorder
                 style={{
-                  minHeight: 300,
+                  height: '100%',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  background:
+                    'linear-gradient(150deg, rgba(255,255,255,0.95), rgba(240, 248, 255, 0.75))',
+                  boxShadow: '0 24px 48px rgba(12, 43, 99, 0.12)',
                 }}
               >
-                <Stack gap="md" align="center" ta="center">
-                      <Image
-                        radius="md"
-                        src="images/examples/ap/heatmap_sample.jpg"
-                        alt="Sample AP X-ray heatmap"
-                        fit="contain"
-                        h={220}
-                        w={200}
-                      />
+                <Stack gap="md" align="center" ta="center" w="100%">
+                  <Box
+                    style={{
+                      width: '100%',
+                      height: 320,
+                      borderRadius: 24,
+                      overflow: 'hidden',
+                      boxShadow: '0 20px 36px rgba(15, 46, 110, 0.18)',
+                    }}
+                  >
+                    <Image
+                      src="/images/examples/ap/heatmap_sample.jpg"
+                      alt="Sample AP X-ray heatmap"
+                      radius={0}
+                      fit="cover"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                  <Text c="gray.6" size="sm">
+                    Model-generated heatmaps highlight suspected vertebral fractures for rapid triage.
+                  </Text>
                 </Stack>
-              </Box>
+              </Paper>
             </Grid.Col>
           </Grid>
         </Container>
