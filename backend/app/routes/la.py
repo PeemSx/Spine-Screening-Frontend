@@ -41,7 +41,12 @@ async def predict_la(
     image_np = np.array(image, dtype=np.uint8)
 
     try:
-        inference = run_la_inference(model, image_np, settings.la_results_dir)
+        inference = run_la_inference(
+            model,
+            image_np,
+            settings.la_results_dir,
+            max_saved_results=settings.max_saved_results,
+        )
     except ValueError as exc:
         logger.exception("LA inference failed due to invalid input.")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

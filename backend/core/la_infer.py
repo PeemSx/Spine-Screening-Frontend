@@ -55,6 +55,7 @@ def run_la_inference(
     model: YOLO,
     rgb_image: np.ndarray,
     results_dir: Union[str, os.PathLike],
+    max_saved_results: int | None = None,
 ) -> Dict[str, Any]:
     """
     Execute YOLO inference for a single RGB image and persist the visualised output.
@@ -99,6 +100,8 @@ def run_la_inference(
     overlay_path = results_dir / f"{base}_la_pred.jpg"
     cv2.imwrite(str(overlay_path), overlay_bgr)
 
+    _trim_la_results(results_dir, max_saved_results)
+
     return {
         "avg_confidence": avg_confidence,
         "detections": detections,
@@ -107,3 +110,18 @@ def run_la_inference(
 
 
 __all__ = ["load_la_model", "run_la_inference"]
+
+
+def _trim_la_results(results_dir: Path, max_saved: int | None) -> None:
+    if max_saved is None or max_saved <= 0:
+        return
+
+    overlays = sorted(
+        results_dir.glob("*_la_pred.jpg"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
+    for old_overlay in overlays[max_saved:]:
+        try:
+            old_overlay.unlink()
+        except OSError as exc:
+            logger.warning("Failed to delete old LA result %s: %s", old_overlay, exc)
+

@@ -66,6 +66,7 @@ def run_inference(
     model: torch.nn.Module,
     bgr_img: np.ndarray,
     results_dir: Union[str, os.PathLike],
+    max_saved_results: int | None = None,
 ) -> Dict[str, Any]:
     """
     Perform single-image inference for AP X-ray using the SpineNet model.
@@ -153,6 +154,8 @@ def run_inference(
     cv2.imwrite(str(overlay_path), overlay)
     cv2.imwrite(str(heatmap_path), heatmap_img)
 
+    _trim_ap_results(ap_dir, max_saved_results)
+
     return {
         "decoder": "centernet",
         "cobb_angle": round(float(cobb), 2),
@@ -163,3 +166,27 @@ def run_inference(
         "heatmap_image": f"/results/ap/{heatmap_path.name}",
         "abs_path": str(overlay_path),
     }
+
+
+def _trim_ap_results(ap_dir: Path, max_saved: int | None) -> None:
+    if max_saved is None or max_saved <= 0:
+        return
+
+    overlays = sorted(
+        ap_dir.glob("*_ap_pred.jpg"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
+    for old_overlay in overlays[max_saved:]:
+        try:
+            old_overlay.unlink()
+        except OSError as exc:
+            logger.warning("Failed to delete old AP result %s: %s", old_overlay, exc)
+            continue
+
+        heatmap_name = old_overlay.name.replace("_ap_pred.jpg", "_ap_heatmap.jpg")
+        heatmap_path = ap_dir / heatmap_name
+        if heatmap_path.exists():
+            try:
+                heatmap_path.unlink()
+            except OSError as exc:
+                logger.warning("Failed to delete old AP heatmap %s: %s", heatmap_path, exc)
+

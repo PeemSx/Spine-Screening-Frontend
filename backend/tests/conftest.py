@@ -21,13 +21,13 @@ def client_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path) -> Iterator[TestCl
     def fake_load_la_model(_):
         return DummyLAModel()
 
-    def fake_run_inference(_model, image, results_dir):
+    def fake_run_inference(_model, image, results_dir, max_saved_results=None):
         ap_dir = results_dir / "ap"
         ap_dir.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(ap_dir / "stub.jpg"), image)
         return {"decoder": "stub", "pred_image": "/results/ap/stub.jpg"}
 
-    def fake_run_la_inference(_model, image, results_dir):
+    def fake_run_la_inference(_model, image, results_dir, max_saved_results=None):
         results_dir.mkdir(parents=True, exist_ok=True)
         overlay_path = results_dir / "stub_la.jpg"
         cv2.imwrite(str(overlay_path), image)

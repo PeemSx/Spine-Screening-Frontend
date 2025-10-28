@@ -2,16 +2,18 @@
 import { Container, SimpleGrid, Stack, Title, Text, Group, Paper, Button, Loader } from "@mantine/core";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { IconUpload, IconBrain } from "@tabler/icons-react";
-import { ResultImageCard } from "@/components/ap/ResultImageCard";
+import { ResultImageCard } from "@/components/layout/ResultImageCard";
+import { ExampleSelector, type ExampleSelection } from "@/components/common/ExampleSelector";
 import { useState, useEffect } from "react";
 import { predictLAXray, BACKEND_URL } from "@/lib/api";
 import type { LaPredictionResult } from "@/schemas/prediction";
+import { LA_EXAMPLE_OPTIONS } from "@/lib/exampleData";
 
 export default function Page() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<LaPredictionResult | null>(null); 
+  const [result, setResult] = useState<LaPredictionResult | null>(null);
 
   useEffect(() => {
     if (file) {
@@ -21,6 +23,11 @@ export default function Page() {
     }
     setPreview(null);
   }, [file]);
+
+  const handleExampleSelect = ({ file: selectedFile }: ExampleSelection) => {
+    setFile(selectedFile);
+    setResult(null);
+  };
 
   const handleRun = async () => {
     if (!file) return;
@@ -43,9 +50,10 @@ export default function Page() {
         : `${BACKEND_URL}${result.pred_image}`
       : "";
 
-  const avgConfidenceText = result
-    ? `${(result.avg_confidence * 100).toFixed(1)}%`
-    : "-";
+  const avgConfidenceValue = result?.avg_confidence ?? null;
+  const numDetectionsValue = result?.num_detections ?? null;
+  const avgConfidenceText =
+    avgConfidenceValue !== null ? `${(avgConfidenceValue * 100).toFixed(1)}%` : "-";
 
   return (
     <Container size="xxl" py="xl">
@@ -58,7 +66,12 @@ export default function Page() {
         <Dropzone
           maxSize={10 * 1024 ** 2}
           accept={IMAGE_MIME_TYPE}
-          onDrop={(files) => files?.length && setFile(files[0])}
+          onDrop={(files) => {
+            if (files?.length) {
+              setFile(files[0]);
+              setResult(null);
+            }
+          }}
         >
           <Group justify="center" mih={120}>
             <Stack gap="xs" align="center">
@@ -67,6 +80,23 @@ export default function Page() {
             </Stack>
           </Group>
         </Dropzone>
+        {LA_EXAMPLE_OPTIONS.length > 0 && (
+          <Group
+            justify="space-between"
+            align="center"
+            mt="md"
+            gap="sm"
+            style={{ flexWrap: "wrap" }}
+          >
+            <Text size="sm" c="dimmed">Need a sample LA X-ray for the demo?</Text>
+            <ExampleSelector
+              examples={LA_EXAMPLE_OPTIONS}
+              onSelect={handleExampleSelect}
+              buttonLabel="Choose example"
+              description="Loads a demo image from the gallery"
+            />
+          </Group>
+        )}
       </Paper>
 
       <Group justify="center" m="md">
@@ -87,35 +117,12 @@ export default function Page() {
           title="2 Predictions"
           src={predictionImageSrc}
           caption={
-            result
-              ? `Avg confidence: ${avgConfidenceText} • Detections: ${result.num_detections}`
+            avgConfidenceValue !== null && numDetectionsValue !== null
+              ? `Avg confidence: ${avgConfidenceText} • Detections: ${numDetectionsValue}`
               : "Run the model to view detections"
           }
         />
       </SimpleGrid>
-
-      {/* {result && (
-        <Paper withBorder shadow="xs" p="lg" mt="xl" radius="md">
-          <Stack gap="sm">
-            <Title order={4}>Detection Summary</Title>
-            <Text size="sm" c="dimmed">
-              {result.detections.length
-                ? "Detailed confidence per detection:"
-                : "No detections were predicted for this image."}
-            </Text>
-            {result.detections.map((det: LaDetection, index: number) => (
-              <Group key={index} justify="space-between">
-                <Text size="sm">
-                  #{index + 1} • {det.class_name}
-                </Text>
-                <Text size="sm" c="dimmed">
-                  {`${(det.confidence * 100).toFixed(1)}%`}
-                </Text>
-              </Group>
-            ))}
-          </Stack>
-        </Paper>
-      )} */}
     </Container>
   );
 }

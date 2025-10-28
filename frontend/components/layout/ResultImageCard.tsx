@@ -1,4 +1,5 @@
-import { Card, Image, Stack, Title, Text, ThemeIcon } from '@mantine/core';
+import { Card, Image, Stack, Title, Text, ThemeIcon } from "@mantine/core";
+import type { ReactNode } from "react";
 
 export function ResultImageCard({
   icon,
@@ -6,7 +7,7 @@ export function ResultImageCard({
   src,
   caption,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   src: string;
   caption?: string;
@@ -32,7 +33,6 @@ export function ResultImageCard({
             {caption}
           </Text>
         )}
-
       </Stack>
     </Card>
   );

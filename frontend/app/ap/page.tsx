@@ -2,15 +2,17 @@
 import { Container, SimpleGrid, Stack, Title, Text, Group, Paper, Button, Loader } from "@mantine/core";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
 import { IconUpload, IconBrain, IconTemperature } from "@tabler/icons-react";
-import { ResultImageCard } from "@/components/ap/ResultImageCard";
+import { ResultImageCard } from "@/components/layout/ResultImageCard";
+import { ExampleSelector, type ExampleSelection } from "@/components/common/ExampleSelector";
 import { useState, useEffect } from "react";
 import { predictAPXray, BACKEND_URL, type ApPredictionResult } from "@/lib/api";
+import { AP_EXAMPLE_OPTIONS } from "@/lib/exampleData";
 
 export default function Page() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<ApPredictionResult | null>(null); 
+  const [result, setResult] = useState<ApPredictionResult | null>(null);
 
   useEffect(() => {
     if (file) {
@@ -20,6 +22,11 @@ export default function Page() {
     }
     setPreview(null);
   }, [file]);
+
+  const handleExampleSelect = ({ file: selectedFile }: ExampleSelection) => {
+    setFile(selectedFile);
+    setResult(null);
+  };
 
   const handleRun = async () => {
     if (!file) return;
@@ -49,6 +56,8 @@ export default function Page() {
         : `${BACKEND_URL}${result.heatmap_image}`
       : "";
 
+  const cobbAngleValue = result?.cobb_angle ?? null;
+
   return (
     <Container size="xxl" py="xl">
       <Stack align="center" mb="xl">
@@ -60,7 +69,12 @@ export default function Page() {
         <Dropzone
           maxSize={10 * 1024 ** 2}
           accept={IMAGE_MIME_TYPE}
-          onDrop={(files) => files?.length && setFile(files[0])}
+          onDrop={(files) => {
+            if (files?.length) {
+              setFile(files[0]);
+              setResult(null);
+            }
+          }}
         >
           <Group justify="center" mih={120}>
             <Stack gap="xs" align="center">
@@ -69,6 +83,23 @@ export default function Page() {
             </Stack>
           </Group>
         </Dropzone>
+        {AP_EXAMPLE_OPTIONS.length > 0 && (
+          <Group
+            justify="space-between"
+            align="center"
+            mt="md"
+            gap="sm"
+            style={{ flexWrap: "wrap" }}
+          >
+            <Text size="sm" c="dimmed">Need a sample AP X-ray for the demo?</Text>
+            <ExampleSelector
+              examples={AP_EXAMPLE_OPTIONS}
+              onSelect={handleExampleSelect}
+              buttonLabel="Choose example"
+              description="Loads a demo image from the gallery"
+            />
+          </Group>
+        )}
       </Paper>
 
       <Group justify="center" m="md">
@@ -94,7 +125,7 @@ export default function Page() {
           icon={<IconTemperature size={20} />}
           title="3 Heatmap"
           src={heatmapImageSrc}
-          caption={`Cobb angle: ${result ? result.cobb_angle : "-"}°`}
+          caption={`Cobb angle: ${cobbAngleValue ?? "-"}°`}
         />
       </SimpleGrid>
     </Container>

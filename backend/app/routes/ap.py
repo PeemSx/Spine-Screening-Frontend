@@ -36,7 +36,12 @@ async def predict_ap(
         raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
 
     try:
-        result = run_inference(model, image, results_dir=settings.results_dir)
+        result = run_inference(
+            model,
+            image,
+            results_dir=settings.results_dir,
+            max_saved_results=settings.max_saved_results,
+        )
     except ValueError as exc:
         logger.exception("Inference failed due to invalid model output.")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

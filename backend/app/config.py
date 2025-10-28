@@ -12,6 +12,7 @@ class Settings(BaseModel):
     results_dir: Path = Field(default=Path("results"))
     la_model_weights_path: Path = Field(default=Path("weights/best_100.pt"))
     la_results_dir: Path = Field(default=Path("results/la"))
+    max_saved_results: int = Field(default=5, ge=0)
     log_level: str = "INFO"
     model_config = ConfigDict(protected_namespaces=())
 
@@ -45,6 +46,11 @@ def get_settings() -> Settings:
     la_model_weights_raw = os.getenv("BACKEND_LA_MODEL_WEIGHTS", "weights/best_100.pt")
     results_dir_raw = os.getenv("BACKEND_RESULTS_DIR", "results")
     la_results_dir_raw = os.getenv("BACKEND_LA_RESULTS_DIR", "results/la")
+    max_saved_results_raw = os.getenv("BACKEND_MAX_SAVED_RESULTS")
+    try:
+        max_saved_results = int(max_saved_results_raw) if max_saved_results_raw is not None else 5
+    except ValueError:
+        max_saved_results = 5
     log_level = os.getenv("BACKEND_LOG_LEVEL", "INFO").upper()
 
     settings = Settings(
@@ -53,6 +59,7 @@ def get_settings() -> Settings:
         la_model_weights_path=_resolve_path(base_dir, la_model_weights_raw),
         results_dir=_resolve_path(base_dir, results_dir_raw),
         la_results_dir=_resolve_path(base_dir, la_results_dir_raw),
+        max_saved_results=max_saved_results,
         log_level=log_level,
     )
     settings.ensure_directories()
