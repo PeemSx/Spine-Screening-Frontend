@@ -23,7 +23,7 @@ export default function Page() {
   const [result, setResult] = useState<LaPredictionResult | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  const isDark = mounted && colorScheme === "dark";
+  const isDark = colorScheme === "dark";
 
   useEffect(() => {
     if (!file) {
@@ -40,6 +40,10 @@ export default function Page() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   const handleNewFile = (selectedFile: File) => {
     setSourceFile(selectedFile);

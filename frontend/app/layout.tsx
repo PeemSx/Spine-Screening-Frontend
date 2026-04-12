@@ -1,7 +1,6 @@
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
 import '@mantine/core/styles.css';
-
-import NavBar from '@/components/layout/NavBar';
+import ClientNavBar from '@/components/layout/ClientNavBar';
 
 export const metadata = {
   title: 'AI-Assisted Detection of OVCF',
@@ -20,7 +19,7 @@ export default function RootLayout({
       </head>
       <body>
         <MantineProvider>
-          <NavBar />
+          <ClientNavBar />
           {children}
         </MantineProvider>
       </body>
