@@ -25,7 +25,6 @@ type NavLink = {
 const navLinks: NavLink[] = [
   { label: 'AP', href: '/ap', isPrimary: true },
   { label: 'LA', href: '/la', isPrimary: true },
-  { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ];
 

@@ -1,15 +1,7 @@
 'use client';
 
 import { Divider, Stack, Text, Title } from '@mantine/core';
-
-type SectionHeaderProps = {
-  title: string;
-  description?: string;
-  eyebrow?: string;
-  align?: 'left' | 'center';
-  withDivider?: boolean;
-  maxWidth?: number;
-};
+import type { SectionHeaderProps } from '@/types/about';
 
 export function SectionHeader({
   title,

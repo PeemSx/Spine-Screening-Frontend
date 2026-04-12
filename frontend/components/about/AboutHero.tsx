@@ -12,27 +12,7 @@ import {
   Title,
   Image,
 } from '@mantine/core';
-
-type HeroStat = {
-  label: string;
-  value: string;
-  description?: string;
-};
-
-type HeroImage = {
-  src: string;
-  alt: string;
-  caption?: string;
-};
-
-type AboutHeroProps = {
-  eyebrow?: string;
-  title: string;
-  description?: string;
-  stats?: HeroStat[];
-  image?: HeroImage;
-  images?: HeroImage[];
-};
+import type { AboutHeroProps } from '@/types/about';
 
 export function AboutHero({
   eyebrow,

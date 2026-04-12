@@ -1,18 +1,12 @@
-import type { ApproachStep } from '@/components/about/ApproachTimeline';
-import type { ComponentProps } from 'react';
-import type { AboutHero } from '@/components/about/AboutHero';
-import type { SectionHeader } from '@/components/about/SectionHeader';
-
-type HeroContent = ComponentProps<typeof AboutHero>;
-type SectionHeaderContent = ComponentProps<typeof SectionHeader>;
+import type { AboutHeroProps, ApproachStep, SectionHeaderProps } from '@/types/about';
 
 type ApproachContent = {
-  header: SectionHeaderContent;
+  header: SectionHeaderProps;
   steps: ApproachStep[];
 };
 
 export const aboutContent: {
-  hero: HeroContent;
+  hero: AboutHeroProps;
   approach: ApproachContent;
 } = {
   hero: {

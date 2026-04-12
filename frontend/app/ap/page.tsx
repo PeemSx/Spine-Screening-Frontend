@@ -1,41 +1,87 @@
 "use client";
-import { Container, SimpleGrid, Stack, Title, Text, Group, Paper, Button, Loader } from "@mantine/core";
+
+import { useEffect, useState } from "react";
+import { Button, Container, Group, Loader, Paper, SimpleGrid, Stack, Text, Title, useComputedColorScheme } from "@mantine/core";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
-import { IconUpload, IconBrain, IconTemperature } from "@tabler/icons-react";
+import { IconBrain, IconCrop, IconTemperature, IconUpload } from "@tabler/icons-react";
+import { ImageCropModal } from "@/components/common/ImageCropModal";
+import { ExampleSelector } from "@/components/common/ExampleSelector";
 import { ResultImageCard } from "@/components/layout/ResultImageCard";
-import { ExampleSelector, type ExampleSelection } from "@/components/common/ExampleSelector";
-import { useState, useEffect } from "react";
-import { predictAPXray, BACKEND_URL, type ApPredictionResult } from "@/lib/api";
 import { AP_EXAMPLE_OPTIONS } from "@/lib/exampleData";
+import { BACKEND_URL, predictAPXray, type ApPredictionResult } from "@/lib/api";
+import type { ExampleSelection } from "@/types/examples";
 
 export default function Page() {
+  const colorScheme = useComputedColorScheme("light");
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cropOpened, setCropOpened] = useState(false);
+  const [isCropped, setIsCropped] = useState(false);
   const [result, setResult] = useState<ApPredictionResult | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  const isDark = mounted && colorScheme === "dark";
 
   useEffect(() => {
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setPreview(url);
-      return () => URL.revokeObjectURL(url);
+    if (!file) {
+      setPreview(null);
+      return;
     }
-    setPreview(null);
+
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+
+    return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const handleExampleSelect = ({ file: selectedFile }: ExampleSelection) => {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const handleNewFile = (selectedFile: File) => {
+    setSourceFile(selectedFile);
     setFile(selectedFile);
+    setIsCropped(false);
+    setResult(null);
+  };
+
+  const handleExampleSelect = ({ file: selectedFile }: ExampleSelection) => {
+    handleNewFile(selectedFile);
+  };
+
+  const handleClearSelection = () => {
+    setSourceFile(null);
+    setFile(null);
+    setCropOpened(false);
+    setIsCropped(false);
+    setResult(null);
+  };
+
+  const handleRestoreOriginal = () => {
+    if (!sourceFile) return;
+    setFile(sourceFile);
+    setIsCropped(false);
+    setResult(null);
+  };
+
+  const handleCropApply = (croppedFile: File) => {
+    setFile(croppedFile);
+    setIsCropped(true);
+    setCropOpened(false);
     setResult(null);
   };
 
   const handleRun = async () => {
     if (!file) return;
     setLoading(true);
+
     try {
       const res = await predictAPXray(file);
       setResult(res);
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
       setResult(null);
     } finally {
       setLoading(false);
@@ -62,7 +108,7 @@ export default function Page() {
     <Container size="xxl" py="xl">
       <Stack align="center" mb="xl">
         <Title order={2}>AP Detection Results</Title>
-        <Text c="dimmed">Visualize AI analysis on your uploaded AP X-ray</Text>
+        <Text c={isDark ? "gray.4" : "dimmed"}>Visualize AI analysis on your uploaded AP X-ray</Text>
       </Stack>
 
       <Paper withBorder shadow="xs" p="md" mb="xl" radius="md">
@@ -71,18 +117,20 @@ export default function Page() {
           accept={IMAGE_MIME_TYPE}
           onDrop={(files) => {
             if (files?.length) {
-              setFile(files[0]);
-              setResult(null);
+              handleNewFile(files[0]);
             }
           }}
         >
           <Group justify="center" mih={120}>
             <Stack gap="xs" align="center">
               <Title order={4}>Drop your AP X-ray here</Title>
-              <Text c="dimmed" size="sm">or click to browse (PNG, JPG, JPEG up to 10 MB)</Text>
+              <Text c="dimmed" size="sm">
+                or click to browse (PNG, JPG, JPEG up to 10 MB)
+              </Text>
             </Stack>
           </Group>
         </Dropzone>
+
         {AP_EXAMPLE_OPTIONS.length > 0 && (
           <Group
             justify="space-between"
@@ -91,7 +139,9 @@ export default function Page() {
             gap="sm"
             style={{ flexWrap: "wrap" }}
           >
-            <Text size="sm" c="dimmed">Need a sample AP X-ray for the demo?</Text>
+            <Text size="sm" c={isDark ? "gray.4" : "dimmed"}>
+              Need a sample AP X-ray for the demo?
+            </Text>
             <ExampleSelector
               examples={AP_EXAMPLE_OPTIONS}
               onSelect={handleExampleSelect}
@@ -99,6 +149,60 @@ export default function Page() {
               description="Loads a demo image from the gallery"
             />
           </Group>
+        )}
+
+        {file && (
+          <Paper
+            mt="md"
+            p="md"
+            radius="md"
+            withBorder
+            styles={{
+              root: {
+                background: isDark
+                  ? "linear-gradient(160deg, rgba(17, 24, 39, 0.96), rgba(30, 41, 59, 0.9))"
+                  : "linear-gradient(160deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.94))",
+                borderColor: isDark ? "rgba(96, 165, 250, 0.18)" : "rgba(148, 163, 184, 0.16)",
+                boxShadow: isDark
+                  ? "0 18px 36px rgba(0, 0, 0, 0.22)"
+                  : "0 14px 28px rgba(15, 23, 42, 0.06)",
+              },
+            }}
+          >
+            <Group justify="space-between" align="center" gap="md" style={{ flexWrap: "wrap" }}>
+              <Stack gap={4}>
+                <Text fw={600} c={isDark ? "gray.1" : "dark.8"}>
+                  {isCropped ? "Cropped image ready" : "Image ready"}
+                </Text>
+                <Text size="sm" c={isDark ? "gray.4" : "dimmed"}>
+                  {file.name}
+                </Text>
+                <Text size="sm" c={isDark ? "gray.4" : "dimmed"}>
+                  Crop is optional. Keep the spine centered and trim excess blank margins before
+                  running AP detection.
+                </Text>
+              </Stack>
+
+              <Group gap="sm">
+                <Button
+                  variant={isDark ? "filled" : "light"}
+                  color="blue"
+                  leftSection={<IconCrop size={16} />}
+                  onClick={() => setCropOpened(true)}
+                >
+                  {isCropped ? "Adjust crop" : "Crop image"}
+                </Button>
+                {isCropped && sourceFile ? (
+                  <Button variant="default" onClick={handleRestoreOriginal}>
+                    Use original
+                  </Button>
+                ) : null}
+                <Button variant={isDark ? "default" : "subtle"} color="gray" onClick={handleClearSelection}>
+                  Clear
+                </Button>
+              </Group>
+            </Group>
+          </Paper>
         )}
       </Paper>
 
@@ -111,9 +215,9 @@ export default function Page() {
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
         <ResultImageCard
           icon={<IconUpload size={20} />}
-          title="1 Upload & Run"
+          title="1 Selected Image"
           src={preview ?? ""}
-          caption="Original uploaded X-ray"
+          caption={isCropped ? "Cropped image used for detection" : "Original uploaded X-ray"}
         />
         <ResultImageCard
           icon={<IconBrain size={20} />}
@@ -125,9 +229,17 @@ export default function Page() {
           icon={<IconTemperature size={20} />}
           title="3 Heatmap"
           src={heatmapImageSrc}
-          caption={`Cobb angle: ${cobbAngleValue ?? "-"}°`}
+          caption={`Cobb angle: ${cobbAngleValue ?? "-"} deg`}
         />
       </SimpleGrid>
+
+      <ImageCropModal
+        opened={cropOpened}
+        file={sourceFile ?? file}
+        title="Crop AP X-ray"
+        onClose={() => setCropOpened(false)}
+        onApply={handleCropApply}
+      />
     </Container>
   );
 }

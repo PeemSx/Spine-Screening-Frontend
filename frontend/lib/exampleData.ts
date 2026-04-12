@@ -1,4 +1,4 @@
-import type { ExampleOption } from "@/components/common/ExampleSelector";
+import type { ExampleOption } from "@/types/examples";
 
 export const AP_EXAMPLE_OPTIONS: ExampleOption[] = [
   {

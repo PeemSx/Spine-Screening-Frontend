@@ -1,12 +1,7 @@
 'use client';
 
 import { Card, Stack, Text, Timeline } from '@mantine/core';
-
-export type ApproachStep = {
-  title: string;
-  description: string;
-  detail?: string;
-};
+import type { ApproachStep } from '@/types/about';
 
 type ApproachTimelineProps = {
   steps: ApproachStep[];

@@ -3,22 +3,7 @@
 import { useState } from "react";
 import { Button, Loader, Menu, Text } from "@mantine/core";
 import { IconChevronDown } from "@tabler/icons-react";
-
-export type ExampleOption = {
-  label: string;
-  src: string;
-  fileName?: string;
-  predictionSrc?: string;
-  heatmapSrc?: string;
-  cobbAngle?: number;
-  avgConfidence?: number;
-  numDetections?: number;
-};
-
-export type ExampleSelection = {
-  example: ExampleOption;
-  file: File;
-};
+import type { ExampleOption, ExampleSelection } from "@/types/examples";
 
 type ExampleSelectorProps = {
   examples: ExampleOption[];
