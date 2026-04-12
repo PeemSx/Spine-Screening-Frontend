@@ -28,8 +28,8 @@ type HeroImage = {
 type AboutHeroProps = {
   eyebrow?: string;
   title: string;
-  description: string;
-  stats: HeroStat[];
+  description?: string;
+  stats?: HeroStat[];
   image?: HeroImage;
   images?: HeroImage[];
 };
@@ -38,7 +38,7 @@ export function AboutHero({
   eyebrow,
   title,
   description,
-  stats,
+  stats = [],
   image,
   images,
 }: AboutHeroProps) {
@@ -75,46 +75,50 @@ export function AboutHero({
                 <Title order={1} size="h1" c="white" fw={800}>
                   {title}
                 </Title>
-                <Text size="lg" c="rgba(255,255,255,0.85)" maw={520}>
-                  {description}
-                </Text>
+                {description ? (
+                  <Text size="lg" c="rgba(255,255,255,0.85)" maw={520}>
+                    {description}
+                  </Text>
+                ) : null}
               </Stack>
 
-              <SimpleGrid
-                cols={{ base: 1, sm: Math.min(2, stats.length) }}
-                spacing="lg"
-              >
-                {stats.map((stat) => (
-                  <Paper
-                    key={stat.label}
-                    radius="lg"
-                    p="lg"
-                    withBorder
-                    styles={{
-                      root: {
-                        borderColor: 'rgba(120, 190, 255, 0.35)',
-                        background:
-                          'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(173, 216, 255, 0.05))',
-                        backdropFilter: 'blur(12px)',
-                      },
-                    }}
-                  >
-                    <Stack gap={4}>
-                      <Text size="3xl" fw={700} c="white" lh={1}>
-                        {stat.value}
-                      </Text>
-                      <Text fw={600} c="blue.1">
-                        {stat.label}
-                      </Text>
-                      {stat.description ? (
-                        <Text size="sm" c="rgba(255,255,255,0.7)">
-                          {stat.description}
+              {stats.length > 0 ? (
+                <SimpleGrid
+                  cols={{ base: 1, sm: Math.min(2, stats.length) }}
+                  spacing="lg"
+                >
+                  {stats.map((stat) => (
+                    <Paper
+                      key={stat.label}
+                      radius="lg"
+                      p="lg"
+                      withBorder
+                      styles={{
+                        root: {
+                          borderColor: 'rgba(120, 190, 255, 0.35)',
+                          background:
+                            'linear-gradient(150deg, rgba(255,255,255,0.08), rgba(173, 216, 255, 0.05))',
+                          backdropFilter: 'blur(12px)',
+                        },
+                      }}
+                    >
+                      <Stack gap={4}>
+                        <Text size="3xl" fw={700} c="white" lh={1}>
+                          {stat.value}
                         </Text>
-                      ) : null}
-                    </Stack>
-                  </Paper>
-                ))}
-              </SimpleGrid>
+                        <Text fw={600} c="blue.1">
+                          {stat.label}
+                        </Text>
+                        {stat.description ? (
+                          <Text size="sm" c="rgba(255,255,255,0.7)">
+                            {stat.description}
+                          </Text>
+                        ) : null}
+                      </Stack>
+                    </Paper>
+                  ))}
+                </SimpleGrid>
+              ) : null}
             </Stack>
           </Grid.Col>
 

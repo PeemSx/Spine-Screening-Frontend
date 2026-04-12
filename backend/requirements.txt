@@ -8,6 +8,5 @@ Pillow==10.4.0
 python-multipart==0.0.9
 pydantic==2.8.2
 typing-extensions==4.12.2
-scipy==1.13.1        
-matplotlib==3.9.1   
+scipy==1.13.1
 ultralytics==8.3.160
