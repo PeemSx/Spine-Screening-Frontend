@@ -276,7 +276,16 @@ export function ImageCropModal({
     return { width, height, left, top };
   }, [cropFrame, imageScale, imageSize, offset.x, offset.y]);
 
-  const canRenderCropper = Boolean(imageUrl && imageSize && cropFrame && renderedImage);
+  const cropRenderState =
+    imageUrl && imageSize && cropFrame && renderedImage
+      ? {
+          imageUrl,
+          cropFrame,
+          renderedImage,
+        }
+      : null;
+
+  const canRenderCropper = Boolean(cropRenderState);
 
   const resetView = () => {
     setZoom(1);
@@ -476,7 +485,7 @@ export function ImageCropModal({
             onPointerCancel={handlePointerEnd}
             onPointerLeave={handlePointerEnd}
           >
-            {!canRenderCropper ? (
+            {!cropRenderState ? (
               <Group justify="center" align="center" h="100%">
                 <Loader size="sm" />
               </Group>
@@ -484,14 +493,14 @@ export function ImageCropModal({
               <>
                 <Box
                   component="img"
-                  src={imageUrl ?? undefined}
+                  src={cropRenderState.imageUrl}
                   alt={title}
                   style={{
                     position: "absolute",
-                    left: renderedImage.left,
-                    top: renderedImage.top,
-                    width: renderedImage.width,
-                    height: renderedImage.height,
+                    left: cropRenderState.renderedImage.left,
+                    top: cropRenderState.renderedImage.top,
+                    width: cropRenderState.renderedImage.width,
+                    height: cropRenderState.renderedImage.height,
                     objectFit: "contain",
                     pointerEvents: "none",
                   }}
@@ -500,10 +509,10 @@ export function ImageCropModal({
                 <Box
                   style={{
                     position: "absolute",
-                    left: cropFrame.x,
-                    top: cropFrame.y,
-                    width: cropFrame.width,
-                    height: cropFrame.height,
+                    left: cropRenderState.cropFrame.x,
+                    top: cropRenderState.cropFrame.y,
+                    width: cropRenderState.cropFrame.width,
+                    height: cropRenderState.cropFrame.height,
                     borderRadius: 20,
                     boxShadow: isDark
                       ? "0 0 0 9999px rgba(2, 6, 23, 0.72)"
