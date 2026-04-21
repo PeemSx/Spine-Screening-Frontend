@@ -15,6 +15,7 @@ import {
   Text,
 } from '@mantine/core';
 import { ThemeToggle } from './ThemeToggle';
+import classes from './NavBar.module.css';
 
 type NavLink = {
   label: string;
@@ -128,7 +129,7 @@ export default function NavBar() {
           </Anchor>
 
           {/* Desktop Navigation */}
-          <Group gap="xl" visibleFrom="sm" grow={false}>
+          <Group gap="xl" grow={false} className={classes.desktopNav}>
             <Group gap="md">{desktopLinks.slice(0, 2)}</Group>
             <Divider orientation="vertical" />
             <Group gap="md">{desktopLinks.slice(2)}</Group>
@@ -140,7 +141,7 @@ export default function NavBar() {
             opened={mobileOpened}
             onClick={toggleMobile}
             aria-label="Toggle navigation menu"
-            hiddenFrom="sm"
+            className={classes.mobileBurger}
           />
         </Group>
       </Container>

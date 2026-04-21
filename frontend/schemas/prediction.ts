@@ -1,4 +1,4 @@
-export type PredictionDecoder = "kps" | "centernet";
+export type PredictionDecoder = "kps" | "centernet" | "centernet_spine_chain";
 
 export type VertebraPoint = [number, number];
 export type VertebraBox = [number, number, number, number];
@@ -13,6 +13,9 @@ export interface LaDetection {
 export interface ApPredictionResult {
   decoder: PredictionDecoder;
   cobb_angle: number;
+  cobb_angles?: [number, number, number];
+  cobb_display_angles?: number[];
+  cobb_is_s_shape?: boolean;
   points: VertebraPoint[];
   boxes: VertebraBox[];
   scores?: number[];

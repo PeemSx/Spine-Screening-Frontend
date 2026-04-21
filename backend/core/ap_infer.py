@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import torch
 
+from core.cobb import cobb_result_from_corners
 from models.spinal_net import SpineNet
 from core.utils_ap import (
     decode_centernet_8corners,
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 DOWN_RATIO   = 4
 NUM_CLASSES  = 1
 K_VERTEBRAE  = 17
+CANDIDATE_TOP_K = 40
 CONF_THRESH  = 0.20
 HEADS        = {"hm": NUM_CLASSES, "reg": 2, "wh": 8}
 FINAL_KERNEL = 1
@@ -97,13 +99,19 @@ def run_inference(
     # ---------- decode ----------
     pts_inp, boxes_inp, scores, corners_inp = decode_centernet_8corners(
         hm=dec["hm"], reg=dec["reg"], wh=dec["wh"],
-        top_k_num=K_VERTEBRAE, down_ratio=DOWN_RATIO, conf_thresh=CONF_THRESH
+        top_k_num=K_VERTEBRAE,
+        down_ratio=DOWN_RATIO,
+        conf_thresh=CONF_THRESH,
+        candidate_top_k=CANDIDATE_TOP_K,
     )
     if pts_inp.size == 0:
         logger.info("No vertebrae detected; returning empty inference payload.")
         return {
-            "decoder": "centernet",
+            "decoder": "centernet_spine_chain",
             "cobb_angle": 0.0,
+            "cobb_angles": [0.0, 0.0, 0.0],
+            "cobb_display_angles": [0.0],
+            "cobb_is_s_shape": False,
             "points": [],
             "boxes": [],
             "scores": [],
@@ -142,7 +150,17 @@ def run_inference(
         width_ratios=width_ratios,
     )
     heatmap_img = draw_heatmap_overlay(bgr_img.copy(), pts)
-    cobb = cobb_from_points(pts)
+    if corners is not None and len(corners) > 0:
+        cobb_result = cobb_result_from_corners(corners, bgr_img.shape)
+        cobb_angles = cobb_result.angles
+        cobb_display_angles = cobb_result.display_angles
+        cobb_is_s_shape = cobb_result.is_s_shape
+        cobb = cobb_result.primary
+    else:
+        cobb = cobb_from_points(pts)
+        cobb_angles = (cobb, 0.0, 0.0)
+        cobb_display_angles = (cobb,)
+        cobb_is_s_shape = False
 
     # ---------- save ----------
     results_dir = Path(results_dir)
@@ -157,8 +175,11 @@ def run_inference(
     _trim_ap_results(ap_dir, max_saved_results)
 
     return {
-        "decoder": "centernet",
+        "decoder": "centernet_spine_chain",
         "cobb_angle": round(float(cobb), 2),
+        "cobb_angles": [round(float(angle), 2) for angle in cobb_angles],
+        "cobb_display_angles": [round(float(angle), 2) for angle in cobb_display_angles],
+        "cobb_is_s_shape": bool(cobb_is_s_shape),
         "points": pts.tolist(),
         "boxes": boxes.tolist(),
         "scores": scores.tolist(),

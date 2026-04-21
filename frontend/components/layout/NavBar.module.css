@@ -1,0 +1,17 @@
+.desktopNav {
+  display: none;
+}
+
+.mobileBurger {
+  display: block;
+}
+
+@media (min-width: 48em) {
+  .desktopNav {
+    display: flex;
+  }
+
+  .mobileBurger {
+    display: none;
+  }
+}

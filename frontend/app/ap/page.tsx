@@ -106,7 +106,10 @@ export default function Page() {
         : `${BACKEND_URL}${result.heatmap_image}`
       : "";
 
-  const cobbAngleValue = result?.cobb_angle ?? null;
+  const cobbAngleCaption =
+    result?.cobb_display_angles && result.cobb_display_angles.length > 1
+      ? `Cobb angles: U ${result.cobb_display_angles[0]} deg, L ${result.cobb_display_angles[1]} deg`
+      : `Cobb angle: ${result?.cobb_angle ?? "-"} deg`;
 
   return (
     <Container size="xxl" py="xl">
@@ -233,7 +236,7 @@ export default function Page() {
           icon={<IconTemperature size={20} />}
           title="3 Heatmap"
           src={heatmapImageSrc}
-          caption={`Cobb angle: ${cobbAngleValue ?? "-"} deg`}
+          caption={cobbAngleCaption}
         />
       </SimpleGrid>
 

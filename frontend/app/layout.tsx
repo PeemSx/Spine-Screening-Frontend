@@ -18,7 +18,7 @@ export default function RootLayout({
         <ColorSchemeScript />
       </head>
       <body>
-        <MantineProvider>
+        <MantineProvider withGlobalClasses={false}>
           <ClientNavBar />
           {children}
         </MantineProvider>
