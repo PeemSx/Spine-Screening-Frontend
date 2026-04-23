@@ -15,6 +15,11 @@ export interface ApPredictionResult {
   cobb_angle: number;
   cobb_angles?: [number, number, number];
   cobb_display_angles?: number[];
+  cobb_vertebra_pairs?: {
+    label: string;
+    vertebrae: [number, number];
+    angle: number;
+  }[];
   cobb_is_s_shape?: boolean;
   points: VertebraPoint[];
   boxes: VertebraBox[];

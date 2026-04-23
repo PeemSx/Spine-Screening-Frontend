@@ -1,15 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Container, Group, Loader, Paper, SimpleGrid, Stack, Text, Title, useComputedColorScheme } from "@mantine/core";
+import { ActionIcon, Box, Button, Container, Group, Loader, Paper, SimpleGrid, Stack, Switch, Text, Title, Tooltip, useComputedColorScheme } from "@mantine/core";
 import { Dropzone, IMAGE_MIME_TYPE } from "@mantine/dropzone";
-import { IconBrain, IconCrop, IconTemperature, IconUpload } from "@tabler/icons-react";
+import { IconBrain, IconChevronLeft, IconChevronRight, IconCrop, IconTemperature, IconUpload } from "@tabler/icons-react";
 import { ImageCropModal } from "@/components/common/ImageCropModal";
 import { ExampleSelector } from "@/components/common/ExampleSelector";
 import { ResultImageCard } from "@/components/layout/ResultImageCard";
 import { AP_EXAMPLE_OPTIONS } from "@/lib/exampleData";
 import { BACKEND_URL, predictAPXray, type ApPredictionResult } from "@/lib/api";
 import type { ExampleSelection } from "@/types/examples";
+
+const formatCobbDisplayAngles = (angles?: number[]) => {
+  if (!angles || angles.length <= 1) return "";
+  const labels = angles.length >= 3 ? ["U", "M", "L"] : ["U", "L"];
+  return angles.map((angle, index) => `${labels[index] ?? index + 1} ${angle} deg`).join(", ");
+};
+
+type ApViewOption = "selected" | "prediction" | "heatmap" | "captions";
 
 export default function Page() {
   const colorScheme = useComputedColorScheme("light");
@@ -21,6 +29,13 @@ export default function Page() {
   const [isCropped, setIsCropped] = useState(false);
   const [result, setResult] = useState<ApPredictionResult | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [viewPanelOpened, setViewPanelOpened] = useState(true);
+  const [viewOptions, setViewOptions] = useState<Record<ApViewOption, boolean>>({
+    selected: true,
+    prediction: true,
+    heatmap: true,
+    captions: true,
+  });
 
   const isDark = colorScheme === "dark";
 
@@ -106,13 +121,141 @@ export default function Page() {
         : `${BACKEND_URL}${result.heatmap_image}`
       : "";
 
-  const cobbAngleCaption =
-    result?.cobb_display_angles && result.cobb_display_angles.length > 1
-      ? `Cobb angles: U ${result.cobb_display_angles[0]} deg, L ${result.cobb_display_angles[1]} deg`
-      : `Cobb angle: ${result?.cobb_angle ?? "-"} deg`;
+  const cobbDisplayAngleText = formatCobbDisplayAngles(result?.cobb_display_angles);
+  const cobbAngleCaption = cobbDisplayAngleText
+    ? `Cobb angles: ${cobbDisplayAngleText}`
+    : `Cobb angle: ${result?.cobb_angle ?? "-"} deg`;
+  const cobbPairCaption =
+    result?.cobb_vertebra_pairs && result.cobb_vertebra_pairs.length > 0
+      ? result.cobb_vertebra_pairs
+          .map((pair) => `${pair.label}: V${pair.vertebrae[0]}-V${pair.vertebrae[1]}`)
+          .join(", ")
+      : "";
+  const predictionCaption = cobbPairCaption
+    ? `Detected vertebrae and Cobb reference lines (${cobbPairCaption})`
+    : "Detected vertebrae and confidence values";
+
+  const resultCards = [
+    viewOptions.selected
+      ? (
+        <ResultImageCard
+          key="selected"
+          icon={<IconUpload size={20} />}
+          title="1 Selected Image"
+          src={preview ?? ""}
+          caption={viewOptions.captions ? (isCropped ? "Cropped image used for detection" : "Original uploaded X-ray") : undefined}
+        />
+      )
+      : null,
+    viewOptions.prediction
+      ? (
+        <ResultImageCard
+          key="prediction"
+          icon={<IconBrain size={20} />}
+          title="2 Predictions"
+          src={predictionImageSrc}
+          caption={viewOptions.captions ? predictionCaption : undefined}
+        />
+      )
+      : null,
+    viewOptions.heatmap
+      ? (
+        <ResultImageCard
+          key="heatmap"
+          icon={<IconTemperature size={20} />}
+          title="3 Heatmap"
+          src={heatmapImageSrc}
+          caption={viewOptions.captions ? cobbAngleCaption : undefined}
+        />
+      )
+      : null,
+  ].filter(Boolean);
+
+  const updateViewOption = (key: ApViewOption, checked: boolean) => {
+    setViewOptions((current) => ({ ...current, [key]: checked }));
+  };
 
   return (
     <Container size="xxl" py="xl">
+      <Box
+        style={{
+          position: "fixed",
+          left: 16,
+          top: "50%",
+          transform: "translateY(-50%)",
+          zIndex: 300,
+        }}
+      >
+        {viewPanelOpened ? (
+          <Paper
+            withBorder
+            shadow="md"
+            radius="md"
+            p="sm"
+            style={{
+              width: 230,
+              background: isDark ? "rgba(15, 23, 42, 0.96)" : "rgba(255, 255, 255, 0.96)",
+              backdropFilter: "blur(10px)",
+            }}
+          >
+            <Group justify="space-between" align="center" mb="xs">
+              <Text fw={700} size="sm">
+                View
+              </Text>
+              <Tooltip label="Hide panel" position="right">
+                <ActionIcon
+                  aria-label="Hide view panel"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => setViewPanelOpened(false)}
+                >
+                  <IconChevronLeft size={16} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
+            <Stack gap="xs">
+              <Switch
+                size="sm"
+                label="Selected image"
+                checked={viewOptions.selected}
+                onChange={(event) => updateViewOption("selected", event.currentTarget.checked)}
+              />
+              <Switch
+                size="sm"
+                label="Predictions"
+                checked={viewOptions.prediction}
+                onChange={(event) => updateViewOption("prediction", event.currentTarget.checked)}
+              />
+              <Switch
+                size="sm"
+                label="Heatmap"
+                checked={viewOptions.heatmap}
+                onChange={(event) => updateViewOption("heatmap", event.currentTarget.checked)}
+              />
+              <Switch
+                size="sm"
+                label="Captions"
+                checked={viewOptions.captions}
+                onChange={(event) => updateViewOption("captions", event.currentTarget.checked)}
+              />
+            </Stack>
+          </Paper>
+        ) : (
+          <Tooltip label="Show view panel" position="right">
+            <ActionIcon
+              aria-label="Show view panel"
+              size="xl"
+              radius="md"
+              variant="filled"
+              color="blue"
+              onClick={() => setViewPanelOpened(true)}
+            >
+              <IconChevronRight size={18} />
+            </ActionIcon>
+          </Tooltip>
+        )}
+      </Box>
+
       <Stack align="center" mb="xl">
         <Title order={2}>AP Detection Results</Title>
         <Text c={isDark ? "gray.4" : "dimmed"}>Visualize AI analysis on your uploaded AP X-ray</Text>
@@ -219,26 +362,17 @@ export default function Page() {
         </Button>
       </Group>
 
-      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
-        <ResultImageCard
-          icon={<IconUpload size={20} />}
-          title="1 Selected Image"
-          src={preview ?? ""}
-          caption={isCropped ? "Cropped image used for detection" : "Original uploaded X-ray"}
-        />
-        <ResultImageCard
-          icon={<IconBrain size={20} />}
-          title="2 Predictions"
-          src={predictionImageSrc}
-          caption="Detected vertebrae and confidence values"
-        />
-        <ResultImageCard
-          icon={<IconTemperature size={20} />}
-          title="3 Heatmap"
-          src={heatmapImageSrc}
-          caption={cobbAngleCaption}
-        />
-      </SimpleGrid>
+      {resultCards.length > 0 ? (
+        <SimpleGrid cols={{ base: 1, sm: Math.min(resultCards.length, 3) }} spacing="lg">
+          {resultCards}
+        </SimpleGrid>
+      ) : (
+        <Paper withBorder p="md" radius="md">
+          <Text ta="center" c={isDark ? "gray.4" : "dimmed"}>
+            No result views selected.
+          </Text>
+        </Paper>
+      )}
 
       <ImageCropModal
         opened={cropOpened}

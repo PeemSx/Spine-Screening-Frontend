@@ -672,6 +672,13 @@ def _chip_size(text: str, scale: float) -> tuple[int, int]:
     return tw + pad_x * 2 + dot + gap, th + baseline + pad_y * 2
 
 
+def _cobb_display_label(index: int, count: int) -> str:
+    if count <= 1:
+        return ""
+    labels = ("U", "M", "L") if count >= 3 else ("U", "L")
+    return labels[min(index, len(labels) - 1)]
+
+
 def _metric_panel_size(cobb_angles: tuple[float, ...], scale: float) -> tuple[int, int]:
     cobb_angles = tuple(float(angle) for angle in cobb_angles) or (0.0,)
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -684,9 +691,7 @@ def _metric_panel_size(cobb_angles: tuple[float, ...], scale: float) -> tuple[in
     row_widths = []
     row_heights = []
     for idx, angle in enumerate(cobb_angles):
-        label = ""
-        if len(cobb_angles) > 1:
-            label = "U" if idx == 0 else "L"
+        label = _cobb_display_label(idx, len(cobb_angles))
         label_size, _ = cv2.getTextSize(label, font, title_scale, title_thick)
         value_size, _ = cv2.getTextSize(f"{angle:.2f}", font, value_scale, value_thick)
         row_widths.append(label_size[0] + value_size[0] + int(round(10 * scale)))
@@ -845,9 +850,7 @@ def _draw_cobb_panel(
 
     cursor_y = y1 + pad_y + int(round(12 * scale)) + row_gap + int(round(18 * scale))
     for idx, angle in enumerate(cobb_angles):
-        label = ""
-        if len(cobb_angles) > 1:
-            label = "U" if idx == 0 else "L"
+        label = _cobb_display_label(idx, len(cobb_angles))
         value = f"{angle:.2f}"
         label_w = 0
         value_x = x1 + pad_x
@@ -887,6 +890,109 @@ def _draw_cobb_panel(
             cv2.LINE_AA,
         )
         cursor_y += value_h + row_gap + int(round(4 * scale))
+
+
+def _side_midpoints(corner_set: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    left_midpoint = (corner_set[0] + corner_set[2]) / 2.0
+    right_midpoint = (corner_set[1] + corner_set[3]) / 2.0
+    return left_midpoint.astype(np.float32), right_midpoint.astype(np.float32)
+
+
+def _draw_selected_cobb_vertebrae(
+    img: np.ndarray,
+    corners: np.ndarray,
+    selected_pairs: tuple[tuple[int, int], ...],
+    scale: float,
+) -> None:
+    if corners is None or len(corners) == 0 or not selected_pairs:
+        return
+
+    colors = ((0, 255, 255), (0, 165, 255), (255, 255, 0))
+    thickness = max(2, int(round(2.5 * scale)))
+    radius = max(4, int(round(5 * scale)))
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = max(0.38, 0.44 * scale)
+    font_thick = max(1, int(round(1.5 * scale)))
+
+    def pair_sort_key(pair: tuple[int, int]) -> float:
+        valid_indices = [idx for idx in pair if 0 <= idx < len(corners)]
+        if not valid_indices:
+            return float("inf")
+        return float(np.mean([np.mean(corners[idx, :, 1]) for idx in valid_indices]))
+
+    ordered_pairs = tuple(sorted(selected_pairs, key=pair_sort_key))
+    label_records = {}
+    for pair_idx, pair in enumerate(ordered_pairs):
+        label = _cobb_display_label(pair_idx, len(ordered_pairs))
+        color = colors[pair_idx % len(colors)]
+
+        for vertebra_idx in pair:
+            if vertebra_idx < 0 or vertebra_idx >= len(corners):
+                continue
+
+            left_midpoint, right_midpoint = _side_midpoints(corners[vertebra_idx].astype(np.float32))
+            p1 = tuple(np.round(left_midpoint).astype(int))
+            p2 = tuple(np.round(right_midpoint).astype(int))
+            center = ((left_midpoint + right_midpoint) / 2.0).astype(np.float32)
+
+            cv2.line(img, p1, p2, color, thickness + 2, cv2.LINE_AA)
+            cv2.line(img, p1, p2, (0, 0, 0), max(1, thickness - 1), cv2.LINE_AA)
+            cv2.line(img, p1, p2, color, thickness, cv2.LINE_AA)
+            cv2.circle(img, p1, radius, color, -1, cv2.LINE_AA)
+            cv2.circle(img, p2, radius, color, -1, cv2.LINE_AA)
+
+            if label:
+                record = label_records.setdefault(
+                    vertebra_idx,
+                    {
+                        "labels": [],
+                        "color": color,
+                        "p1": p1,
+                        "p2": p2,
+                        "center": center,
+                    },
+                )
+                if label not in record["labels"]:
+                    record["labels"].append(label)
+                record["p1"] = p1
+                record["p2"] = p2
+                record["center"] = center
+
+    for record in label_records.values():
+        text = "/".join(record["labels"])
+        p1 = record["p1"]
+        p2 = record["p2"]
+        center = record["center"]
+        text_color = record["color"] if len(record["labels"]) == 1 else (235, 238, 242)
+
+        (text_w, text_h), baseline = cv2.getTextSize(text, font, font_scale, font_thick)
+        label_gap = max(8, int(round(11 * scale)))
+        right_x = int(round(max(p1[0], p2[0]) + label_gap))
+        left_x = int(round(min(p1[0], p2[0]) - label_gap - text_w))
+        if right_x + text_w + 8 <= img.shape[1]:
+            x = right_x
+        elif left_x >= 8:
+            x = left_x
+        else:
+            x = int(np.clip(right_x, 4, max(img.shape[1] - text_w - 4, 4)))
+        y = int(
+            np.clip(
+                center[1] + text_h / 2,
+                text_h + 6,
+                max(img.shape[0] - baseline - 4, text_h + 6),
+            )
+        )
+        _draw_rounded_rect(
+            img,
+            x - 6,
+            y - text_h - 5,
+            x + text_w + 6,
+            y + baseline + 3,
+            (12, 16, 20),
+            max(5, int(round(6 * scale))),
+            0.88,
+        )
+        cv2.putText(img, text, (x, y), font, font_scale, text_color, font_thick, cv2.LINE_AA)
 
 
 def draw_overlay(
@@ -1058,6 +1164,14 @@ def draw_overlay(
             str(record["side"]),
             scale,
             record["accent"],
+        )
+
+    if corners is not None and len(corners) > 0:
+        _draw_selected_cobb_vertebrae(
+            out,
+            corners.astype(np.float32),
+            cobb_result.display_pairs,
+            scale,
         )
 
     return out

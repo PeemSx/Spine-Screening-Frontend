@@ -34,6 +34,25 @@ HEAD_CONV    = 256
 IN_H, IN_W   = 1024, 512
 # =================================
 
+
+def _format_cobb_vertebra_pairs(cobb_result) -> list[dict[str, Any]]:
+    measurements = cobb_result.display_measurements
+    labels = ("Cobb",) if len(measurements) == 1 else (
+        ("U", "M", "L") if len(measurements) >= 3 else ("U", "L")
+    )
+    formatted = []
+    for idx, (pair, angle) in enumerate(measurements):
+        label = labels[min(idx, len(labels) - 1)]
+        vertebra_pair = sorted([int(pair[0]) + 1, int(pair[1]) + 1])
+        formatted.append(
+            {
+                "label": label,
+                "vertebrae": vertebra_pair,
+                "angle": round(angle, 2),
+            }
+        )
+    return formatted
+
 def load_model(weight_path: Union[str, os.PathLike]) -> torch.nn.Module:
     """
     Load SpineNet weights for inference on CPU.
@@ -111,6 +130,7 @@ def run_inference(
             "cobb_angle": 0.0,
             "cobb_angles": [0.0, 0.0, 0.0],
             "cobb_display_angles": [0.0],
+            "cobb_vertebra_pairs": [],
             "cobb_is_s_shape": False,
             "points": [],
             "boxes": [],
@@ -155,12 +175,14 @@ def run_inference(
         cobb_angles = cobb_result.angles
         cobb_display_angles = cobb_result.display_angles
         cobb_is_s_shape = cobb_result.is_s_shape
+        cobb_vertebra_pairs = _format_cobb_vertebra_pairs(cobb_result)
         cobb = cobb_result.primary
     else:
         cobb = cobb_from_points(pts)
         cobb_angles = (cobb, 0.0, 0.0)
         cobb_display_angles = (cobb,)
         cobb_is_s_shape = False
+        cobb_vertebra_pairs = []
 
     # ---------- save ----------
     results_dir = Path(results_dir)
@@ -179,6 +201,7 @@ def run_inference(
         "cobb_angle": round(float(cobb), 2),
         "cobb_angles": [round(float(angle), 2) for angle in cobb_angles],
         "cobb_display_angles": [round(float(angle), 2) for angle in cobb_display_angles],
+        "cobb_vertebra_pairs": cobb_vertebra_pairs,
         "cobb_is_s_shape": bool(cobb_is_s_shape),
         "points": pts.tolist(),
         "boxes": boxes.tolist(),

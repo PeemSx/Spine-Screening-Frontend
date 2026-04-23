@@ -12,6 +12,7 @@ class CobbResult:
     upper: float
     lower: float
     is_s_shape: bool
+    selected_pairs: tuple[tuple[int, int], ...] = ()
 
     @property
     def angles(self) -> tuple[float, float, float]:
@@ -19,9 +20,36 @@ class CobbResult:
 
     @property
     def display_angles(self) -> tuple[float, ...]:
-        if self.is_s_shape:
-            return self.upper, self.lower
-        return (self.primary,)
+        measurements = self.display_measurements
+        if measurements:
+            return tuple(angle for _, angle in measurements)
+        return (self.upper, self.primary, self.lower) if self.is_s_shape else (self.primary,)
+
+    @property
+    def display_pairs(self) -> tuple[tuple[int, int], ...]:
+        return tuple(pair for pair, _ in self.display_measurements)
+
+    @property
+    def display_measurements(self) -> tuple[tuple[tuple[int, int], float], ...]:
+        if not self.selected_pairs:
+            return ()
+
+        angles = (self.upper, self.primary, self.lower) if self.is_s_shape else (self.primary,)
+        measurements = []
+        for idx, pair in enumerate(self.selected_pairs):
+            angle = angles[idx] if idx < len(angles) else self.primary
+            measurements.append((pair, float(angle)))
+
+        if not self.is_s_shape:
+            return tuple(measurements[:1])
+
+        # Vertebra indices are ordered superior-to-inferior before this result is built.
+        return tuple(
+            sorted(
+                measurements,
+                key=lambda item: sum(item[0]) / max(len(item[0]), 1),
+            )
+        )
 
 
 def _image_height(image_shape: Sequence[int] | None, landmarks: np.ndarray) -> float:
@@ -101,28 +129,43 @@ def cobb_result_from_landmarks(
     paired_indices = np.argmax(angles, axis=1)
     max_per_row = np.amax(angles, axis=1)
     primary_idx = int(np.argmax(max_per_row))
+    paired_idx = int(paired_indices[primary_idx])
     primary_angle = float(np.amax(max_per_row) / np.pi * 180.0)
 
     is_s_shape = _is_s_curve(vertical_midpoints)
     if not is_s_shape:
         upper_angle = float(angles[0, primary_idx] / np.pi * 180.0)
-        lower_angle = float(angles[last_vertebra_idx, paired_indices[primary_idx]] / np.pi * 180.0)
-        return CobbResult(primary_angle, upper_angle, lower_angle, False)
+        lower_angle = float(angles[last_vertebra_idx, paired_idx] / np.pi * 180.0)
+        return CobbResult(primary_angle, upper_angle, lower_angle, False, ((primary_idx, paired_idx),))
 
-    paired_idx = int(paired_indices[primary_idx])
     if (vertical_midpoints[primary_idx * 2, 1] + vertical_midpoints[paired_idx * 2, 1]) < height:
         upper_slice = angles[primary_idx, : primary_idx + 1]
         lower_slice = angles[paired_idx, paired_idx : last_vertebra_idx + 1]
+        upper_idx = int(np.argmax(upper_slice)) if upper_slice.size else primary_idx
+        lower_idx = paired_idx + int(np.argmax(lower_slice)) if lower_slice.size else paired_idx
         upper_angle = float(np.max(upper_slice) / np.pi * 180.0) if upper_slice.size else 0.0
         lower_angle = float(np.max(lower_slice) / np.pi * 180.0) if lower_slice.size else 0.0
-        return CobbResult(primary_angle, upper_angle, lower_angle, True)
+        return CobbResult(
+            primary_angle,
+            upper_angle,
+            lower_angle,
+            True,
+            ((upper_idx, primary_idx), (primary_idx, paired_idx), (paired_idx, lower_idx)),
+        )
 
     upper_slice = angles[primary_idx, : primary_idx + 1]
     upper_angle = float(np.max(upper_slice) / np.pi * 180.0) if upper_slice.size else 0.0
     upper_idx = int(np.argmax(upper_slice)) if upper_slice.size else 0
     lower_slice = angles[upper_idx, : upper_idx + 1]
+    lower_idx = int(np.argmax(lower_slice)) if lower_slice.size else upper_idx
     lower_angle = float(np.max(lower_slice) / np.pi * 180.0) if lower_slice.size else 0.0
-    return CobbResult(primary_angle, upper_angle, lower_angle, True)
+    return CobbResult(
+        primary_angle,
+        upper_angle,
+        lower_angle,
+        True,
+        ((upper_idx, primary_idx), (primary_idx, paired_idx), (upper_idx, lower_idx)),
+    )
 
 
 def cobb_angles_from_landmarks(

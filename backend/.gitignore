@@ -11,3 +11,4 @@ venv
 !*.example
 results/*/*.jpg
 !results/.gitkeep
+temp/
