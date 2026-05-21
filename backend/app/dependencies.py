@@ -18,7 +18,7 @@ def _get_state_attr(request: Request, attr: str) -> Any:
 
 def get_ap_model(request: Request, _: Settings = Depends(get_settings_dependency)) -> Any:
     """
-    Retrieve the AP inference model (SpineNet) from application state.
+    Retrieve the AP inference model from application state.
     """
     return _get_state_attr(request, "ap_model")
 

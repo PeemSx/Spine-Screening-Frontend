@@ -8,6 +8,7 @@ from core.cobb import (
     cobb_result_from_corners,
     primary_cobb_angle_from_corners,
 )
+from core.spine_decoder import DecDecoder
 
 # Distinct per-vertebra colors (RGB in 0-255)
 COLORS = [
@@ -19,403 +20,78 @@ COLORS = [
     (  9,  16, 226), ( 13, 228,  23),
 ]
 
-def _to_heatmap_scale(value_px: float, down_ratio: int) -> float:
-    if value_px <= 0:
-        return 0.0
-    return float(value_px) / float(max(int(down_ratio), 1))
+
+def build_resize_metadata(orig_w: int, orig_h: int, in_w: int, in_h: int) -> dict[str, float | int]:
+    scale = min(float(in_w) / float(orig_w), float(in_h) / float(orig_h))
+    resized_w = max(1, min(int(round(orig_w * scale)), int(in_w)))
+    resized_h = max(1, min(int(round(orig_h * scale)), int(in_h)))
+    pad_w = int(in_w) - resized_w
+    pad_h = int(in_h) - resized_h
+    pad_left = pad_w // 2
+    pad_right = pad_w - pad_left
+    pad_top = pad_h // 2
+    pad_bottom = pad_h - pad_top
+    return {
+        "orig_w": int(orig_w),
+        "orig_h": int(orig_h),
+        "in_w": int(in_w),
+        "in_h": int(in_h),
+        "scale": float(scale),
+        "resized_w": int(resized_w),
+        "resized_h": int(resized_h),
+        "pad_left": int(pad_left),
+        "pad_right": int(pad_right),
+        "pad_top": int(pad_top),
+        "pad_bottom": int(pad_bottom),
+    }
 
 
-def _squared_candidate_distance(candidate_a: dict, candidate_b: dict) -> float:
-    dx = float(candidate_a["x"]) - float(candidate_b["x"])
-    dy = float(candidate_a["y"]) - float(candidate_b["y"])
-    return dx * dx + dy * dy
-
-
-def _filter_candidates_by_confidence(
-    candidates: list[dict],
-    conf_thresh: float,
-    num_vertebrae: int,
-) -> tuple[list[dict], bool]:
-    if conf_thresh <= 0:
-        return list(candidates), False
-
-    confident = [cand for cand in candidates if float(cand["score"]) >= conf_thresh]
-    if len(confident) >= num_vertebrae:
-        return confident, True
-    return list(candidates), False
-
-
-def _suppress_duplicate_candidates(
-    candidates: list[dict],
-    duplicate_radius_px: float,
-    down_ratio: int,
-) -> list[dict]:
-    radius = _to_heatmap_scale(duplicate_radius_px, down_ratio)
-    if radius <= 0 or len(candidates) <= 1:
-        return list(candidates)
-
-    radius_sq = radius * radius
-    selected = []
-    for cand in sorted(candidates, key=lambda item: (-item["score"], item["y"], item["x"])):
-        keep = True
-        for prev in selected:
-            if _squared_candidate_distance(cand, prev) <= radius_sq:
-                keep = False
-                break
-        if keep:
-            selected.append(cand)
-    return selected
-
-
-def _estimate_spacing_prior(
-    candidates: list[dict],
-    num_vertebrae: int,
-    down_ratio: int,
-    min_dy_px: float,
-    max_dy_px: float,
-) -> tuple[float, float, float]:
-    if len(candidates) < 2:
-        return 1.0, 0.0, float("inf")
-
-    ys = np.asarray([cand["y"] for cand in candidates], dtype=np.float32)
-    full_span = float(max(ys[-1] - ys[0], 1.0))
-    lower = float(np.percentile(ys, 5.0))
-    upper = float(np.percentile(ys, 95.0))
-    trimmed_span = max(upper - lower, 1.0)
-    target_dy = max(0.5 * (full_span + trimmed_span) / max(num_vertebrae - 1, 1), 1.0)
-
-    min_dy = _to_heatmap_scale(min_dy_px, down_ratio)
-    max_dy = _to_heatmap_scale(max_dy_px, down_ratio)
-    if min_dy <= 0:
-        min_dy = 0.45 * target_dy
-    if max_dy <= 0:
-        max_dy = 1.90 * target_dy
-    if max_dy <= min_dy:
-        max_dy = min_dy + max(0.5 * target_dy, 1.0)
-
-    return float(target_dy), float(min_dy), float(max_dy)
-
-
-def _pair_penalty(
-    prev_cand: dict,
-    curr_cand: dict,
-    target_dy: float,
-    min_dy: float,
-    max_dy: float,
-    spacing_weight: float,
-    smoothness_weight: float,
-) -> float | None:
-    dy = float(curr_cand["y"]) - float(prev_cand["y"])
-    if dy <= 0 or dy < min_dy or dy > max_dy:
-        return None
-
-    dx = float(curr_cand["x"]) - float(prev_cand["x"])
-    dy_norm = dy / max(target_dy, 1e-6)
-    dx_norm = dx / max(target_dy, 1e-6)
-    spacing_penalty = (dy_norm - 1.0) ** 2
-    smoothness_penalty = dx_norm**2
-    return spacing_weight * spacing_penalty + smoothness_weight * smoothness_penalty
-
-
-def _triple_penalty(
-    prev_prev_cand: dict,
-    prev_cand: dict,
-    curr_cand: dict,
-    target_dy: float,
-    spacing_weight: float,
-    curvature_weight: float,
-) -> float:
-    prev_dy = float(prev_cand["y"]) - float(prev_prev_cand["y"])
-    curr_dy = float(curr_cand["y"]) - float(prev_cand["y"])
-    spacing_change = (curr_dy - prev_dy) / max(target_dy, 1e-6)
-    curvature = (
-        float(curr_cand["x"]) - 2.0 * float(prev_cand["x"]) + float(prev_prev_cand["x"])
-    ) / max(target_dy, 1e-6)
-    return 0.5 * spacing_weight * (spacing_change**2) + curvature_weight * abs(curvature)
-
-
-def _select_topk_candidates(
-    candidates: list[dict],
-    num_vertebrae: int,
-) -> list[dict] | None:
-    if len(candidates) < num_vertebrae:
-        return None
-
-    selected = sorted(candidates, key=lambda item: (-item["score"], item["y"], item["x"]))
-    selected = selected[:num_vertebrae]
-    return sorted(selected, key=lambda item: (item["y"], item["x"]))
-
-
-def _select_best_chain(
-    candidates: list[dict],
-    num_vertebrae: int,
-    down_ratio: int,
-    min_dy_px: float,
-    max_dy_px: float,
-    score_weight: float,
-    spacing_weight: float,
-    smoothness_weight: float,
-    curvature_weight: float,
-    relaxed_min_dy_scale: float,
-    relaxed_max_dy_scale: float,
-    relax_constraints: bool = False,
-) -> list[dict] | None:
-    if len(candidates) < num_vertebrae:
-        return None
-
-    ordered = sorted(candidates, key=lambda item: (item["y"], item["x"]))
-    target_dy, min_dy, max_dy = _estimate_spacing_prior(
-        ordered,
-        num_vertebrae,
-        down_ratio,
-        min_dy_px,
-        max_dy_px,
+def resize_with_aspect_padding(
+    image: np.ndarray,
+    in_w: int,
+    in_h: int,
+    pad_value: int | float = 0,
+) -> tuple[np.ndarray, dict[str, float | int]]:
+    resize_meta = build_resize_metadata(image.shape[1], image.shape[0], in_w, in_h)
+    interpolation = cv2.INTER_LINEAR if resize_meta["scale"] >= 1.0 else cv2.INTER_AREA
+    resized = cv2.resize(
+        image,
+        (int(resize_meta["resized_w"]), int(resize_meta["resized_h"])),
+        interpolation=interpolation,
     )
-    if relax_constraints:
-        min_dy *= relaxed_min_dy_scale
-        max_dy *= relaxed_max_dy_scale
-
-    target_len = num_vertebrae
-    num_candidates = len(ordered)
-    inf = np.inf
-    point_cost = np.asarray(
-        [-score_weight * float(cand["score"]) for cand in ordered],
-        dtype=np.float64,
-    )
-    dp = np.full((target_len + 1, num_candidates, num_candidates), inf, dtype=np.float64)
-    parent = np.full((target_len + 1, num_candidates, num_candidates), -1, dtype=np.int32)
-
-    for prev_idx in range(num_candidates - 1):
-        for curr_idx in range(prev_idx + 1, num_candidates):
-            pair_cost = _pair_penalty(
-                ordered[prev_idx],
-                ordered[curr_idx],
-                target_dy,
-                min_dy,
-                max_dy,
-                spacing_weight,
-                smoothness_weight,
-            )
-            if pair_cost is None:
-                continue
-            dp[2, prev_idx, curr_idx] = point_cost[prev_idx] + point_cost[curr_idx] + pair_cost
-
-    for length in range(3, target_len + 1):
-        min_prev_idx = length - 2
-        for prev_idx in range(min_prev_idx, num_candidates - 1):
-            for curr_idx in range(prev_idx + 1, num_candidates):
-                pair_cost = _pair_penalty(
-                    ordered[prev_idx],
-                    ordered[curr_idx],
-                    target_dy,
-                    min_dy,
-                    max_dy,
-                    spacing_weight,
-                    smoothness_weight,
-                )
-                if pair_cost is None:
-                    continue
-
-                best_cost = inf
-                best_prev_prev_idx = -1
-                for prev_prev_idx in range(prev_idx):
-                    previous_cost = dp[length - 1, prev_prev_idx, prev_idx]
-                    if not np.isfinite(previous_cost):
-                        continue
-                    triple_cost = _triple_penalty(
-                        ordered[prev_prev_idx],
-                        ordered[prev_idx],
-                        ordered[curr_idx],
-                        target_dy,
-                        spacing_weight,
-                        curvature_weight,
-                    )
-                    current_cost = previous_cost + point_cost[curr_idx] + pair_cost + triple_cost
-                    if current_cost < best_cost:
-                        best_cost = current_cost
-                        best_prev_prev_idx = prev_prev_idx
-
-                if best_prev_prev_idx != -1:
-                    dp[length, prev_idx, curr_idx] = best_cost
-                    parent[length, prev_idx, curr_idx] = best_prev_prev_idx
-
-    best_cost = inf
-    best_prev_idx = -1
-    best_curr_idx = -1
-    for prev_idx in range(num_candidates - 1):
-        for curr_idx in range(prev_idx + 1, num_candidates):
-            current_cost = dp[target_len, prev_idx, curr_idx]
-            if current_cost < best_cost:
-                best_cost = current_cost
-                best_prev_idx = prev_idx
-                best_curr_idx = curr_idx
-
-    if best_prev_idx == -1:
-        return None
-
-    chain_indices = [best_curr_idx, best_prev_idx]
-    curr_length = target_len
-    curr_prev_idx = best_prev_idx
-    curr_curr_idx = best_curr_idx
-    while curr_length > 2:
-        prev_prev_idx = parent[curr_length, curr_prev_idx, curr_curr_idx]
-        if prev_prev_idx < 0:
-            return None
-        chain_indices.append(int(prev_prev_idx))
-        curr_curr_idx = curr_prev_idx
-        curr_prev_idx = int(prev_prev_idx)
-        curr_length -= 1
-
-    chain_indices.reverse()
-    return [ordered[idx] for idx in chain_indices]
+    canvas = np.full((in_h, in_w, image.shape[2]), pad_value, dtype=image.dtype)
+    y0 = int(resize_meta["pad_top"])
+    x0 = int(resize_meta["pad_left"])
+    canvas[y0:y0 + resized.shape[0], x0:x0 + resized.shape[1]] = resized
+    return canvas, resize_meta
 
 
-def _merge_candidate_sources(*candidate_groups: list[dict]) -> list[dict]:
-    merged = []
-    seen_heat_indices = set()
-    for candidates in candidate_groups:
-        for cand in candidates:
-            heat_index = int(cand["heat_index"])
-            if heat_index in seen_heat_indices:
-                continue
-            merged.append(cand)
-            seen_heat_indices.add(heat_index)
-    return merged
+def _invert_resize_for_points(
+    pts_inp: np.ndarray,
+    resize_meta: dict[str, float | int],
+) -> np.ndarray:
+    pts = pts_inp.astype(np.float32).copy()
+    pts[:, 0] = (pts[:, 0] - float(resize_meta["pad_left"])) / float(resize_meta["scale"])
+    pts[:, 1] = (pts[:, 1] - float(resize_meta["pad_top"])) / float(resize_meta["scale"])
+    pts[:, 0] = np.clip(pts[:, 0], 0.0, max(float(int(resize_meta["orig_w"]) - 1), 0.0))
+    pts[:, 1] = np.clip(pts[:, 1], 0.0, max(float(int(resize_meta["orig_h"]) - 1), 0.0))
+    return pts
 
 
-def _enforce_non_overlapping_selection(
-    seed_candidates: list[dict],
-    supplemental_candidates: list[dict],
-    num_vertebrae: int,
-    duplicate_radius_px: float,
-    down_ratio: int,
-) -> list[dict] | None:
-    radius = _to_heatmap_scale(duplicate_radius_px, down_ratio)
-    radius_sq = radius * radius
-    selected = []
-    seen_heat_indices = set()
-
-    def try_add(candidate: dict) -> bool:
-        heat_index = int(candidate["heat_index"])
-        if heat_index in seen_heat_indices:
-            return False
-        if radius > 0:
-            for prev in selected:
-                if _squared_candidate_distance(candidate, prev) <= radius_sq:
-                    return False
-        selected.append(candidate)
-        seen_heat_indices.add(heat_index)
-        return True
-
-    for cand in sorted(seed_candidates, key=lambda item: (-item["score"], item["y"], item["x"])):
-        try_add(cand)
-        if len(selected) == num_vertebrae:
-            break
-
-    for cand in supplemental_candidates:
-        if len(selected) == num_vertebrae:
-            break
-        try_add(cand)
-
-    if len(selected) < num_vertebrae:
-        return None
-    return sorted(selected, key=lambda item: (item["y"], item["x"]))
-
-
-def _select_spine_chain_candidates(
-    raw_candidates: list[dict],
-    num_vertebrae: int,
-    conf_thresh: float,
-    down_ratio: int,
-    duplicate_radius_px: float,
-    min_dy_px: float,
-    max_dy_px: float,
-    score_weight: float,
-    spacing_weight: float,
-    smoothness_weight: float,
-    curvature_weight: float,
-    relaxed_min_dy_scale: float,
-    relaxed_max_dy_scale: float,
-) -> list[dict]:
-    filtered_candidates, _ = _filter_candidates_by_confidence(
-        raw_candidates,
-        conf_thresh,
-        num_vertebrae,
-    )
-    suppressed_candidates = _suppress_duplicate_candidates(
-        filtered_candidates,
-        duplicate_radius_px,
-        down_ratio,
-    )
-
-    selected_candidates = _select_best_chain(
-        suppressed_candidates,
-        num_vertebrae,
-        down_ratio,
-        min_dy_px,
-        max_dy_px,
-        score_weight,
-        spacing_weight,
-        smoothness_weight,
-        curvature_weight,
-        relaxed_min_dy_scale,
-        relaxed_max_dy_scale,
-        relax_constraints=False,
-    )
-    if selected_candidates is None:
-        selected_candidates = _select_best_chain(
-            suppressed_candidates,
-            num_vertebrae,
-            down_ratio,
-            min_dy_px,
-            max_dy_px,
-            score_weight,
-            spacing_weight,
-            smoothness_weight,
-            curvature_weight,
-            relaxed_min_dy_scale,
-            relaxed_max_dy_scale,
-            relax_constraints=True,
-        )
-    if selected_candidates is None and len(filtered_candidates) >= num_vertebrae:
-        selected_candidates = _select_best_chain(
-            filtered_candidates,
-            num_vertebrae,
-            down_ratio,
-            min_dy_px,
-            max_dy_px,
-            score_weight,
-            spacing_weight,
-            smoothness_weight,
-            curvature_weight,
-            relaxed_min_dy_scale,
-            relaxed_max_dy_scale,
-            relax_constraints=True,
-        )
-    if selected_candidates is None:
-        selected_candidates = _select_topk_candidates(suppressed_candidates, num_vertebrae)
-    if selected_candidates is None:
-        selected_candidates = _select_topk_candidates(filtered_candidates, num_vertebrae)
-    if selected_candidates is None:
-        selected_candidates = _select_topk_candidates(raw_candidates, num_vertebrae)
-    if selected_candidates is None:
-        return []
-
-    supplemental_candidates = _merge_candidate_sources(
-        suppressed_candidates,
-        filtered_candidates,
-        raw_candidates,
-    )
-    enforced_selection = _enforce_non_overlapping_selection(
-        selected_candidates,
-        supplemental_candidates,
-        num_vertebrae,
-        duplicate_radius_px,
-        down_ratio,
-    )
-    if enforced_selection is not None:
-        return enforced_selection
-    return sorted(selected_candidates, key=lambda item: (item["y"], item["x"]))
+def scale_corners_to_original(
+    corners_inp: np.ndarray,
+    orig_w: int,
+    orig_h: int,
+    in_w: int,
+    in_h: int,
+    resize_meta: Optional[dict[str, float | int]] = None,
+) -> np.ndarray:
+    if resize_meta is None:
+        resize_meta = build_resize_metadata(orig_w, orig_h, in_w, in_h)
+    if corners_inp is None or corners_inp.size == 0:
+        return np.zeros((0, 4, 2), dtype=np.float32)
+    flat = corners_inp.reshape(-1, 2)
+    return _invert_resize_for_points(flat, resize_meta).reshape(corners_inp.shape)
 
 
 def decode_centernet_8corners(
@@ -437,94 +113,18 @@ def decode_centernet_8corners(
     relaxed_max_dy_scale: float = 1.60,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Decode CenterNet outputs and select the final vertebrae as a spine chain."""
-    def nms(hm: torch.Tensor, kernel: int = 3) -> torch.Tensor:
-        pad = (kernel - 1) // 2
-        hmax = torch.nn.functional.max_pool2d(hm, (kernel, kernel), stride=1, padding=pad)
-        keep = (hmax == hm).float()
-        return hm * keep
-
-    def topk(scores: torch.Tensor, topk: int = 40):
-        b, c, h, w = scores.size()
-        topk = min(int(topk), h * w)
-        scores = nms(scores).view(b, c, -1)
-        tk_scores, tk_inds = torch.topk(scores, topk)
-        tk_inds = tk_inds % (h * w)
-        tk_ys = (tk_inds // w).float()
-        tk_xs = (tk_inds % w).float()
-        tk_scores = tk_scores.view(b, -1)
-        tk_inds = tk_inds.view(b, -1)
-        tk_classes = (torch.arange(c).view(1, c, 1).expand(b, c, topk).contiguous().view(b, -1))
-        tk_scores, tk_idx = torch.topk(tk_scores, topk)
-        def gather(x): return torch.gather(x, 1, tk_idx)
-        return (
-            tk_scores.squeeze(0),
-            torch.gather(tk_inds, 1, tk_idx).squeeze(0),
-            gather(tk_classes).squeeze(0),
-            gather(tk_ys.view(b, -1)).squeeze(0),
-            gather(tk_xs.view(b, -1)).squeeze(0),
-        )
-
-    def gather_feat(feat: torch.Tensor, ind: torch.Tensor) -> torch.Tensor:
-        if feat.dim() == 4:
-            b, c, h, w = feat.size()
-            feat = feat.view(b, c, -1)  # flatten to (B, C, H*W)
-        else:
-            b, c, _ = feat.size()
-
-        if ind.dim() == 1:
-            ind = ind.unsqueeze(0)  # → (1, N)
-        if ind.dim() == 2 and b == 1:
-            ind = ind.expand(b, ind.size(1))  # broadcast batch
-
-        ind = ind.long().unsqueeze(1).expand(b, c, ind.size(-1))
-        out = torch.gather(feat, 2, ind)
-        out = out.squeeze(0).transpose(0, 1)  # (N, C)
-        return out
-
     if torch.min(hm) < 0 or torch.max(hm) > 1:
         hm = torch.sigmoid(hm)
+
     num_vertebrae = max(int(top_k_num), 1)
-    candidate_count = max(
-        int(candidate_top_k) if candidate_top_k is not None else 40,
-        num_vertebrae,
-    )
-    scores, inds, clses, ys, xs = topk(hm, topk=candidate_count)
-
-    reg = gather_feat(reg, inds)
-    wh = gather_feat(wh, inds)
-
-    xs = xs + reg[:, 0]
-    ys = ys + reg[:, 1]
-
-    tl_x = xs - wh[:, 0]; tl_y = ys - wh[:, 1]
-    tr_x = xs - wh[:, 2]; tr_y = ys - wh[:, 3]
-    bl_x = xs - wh[:, 4]; bl_y = ys - wh[:, 5]
-    br_x = xs - wh[:, 6]; br_y = ys - wh[:, 7]
-
-    wh_np = wh.detach().cpu().numpy().astype(np.float32)
-    xs_np = xs.detach().cpu().numpy().astype(np.float32)
-    ys_np = ys.detach().cpu().numpy().astype(np.float32)
-    scores_np = scores.detach().cpu().numpy().astype(np.float32)
-    inds_np = inds.detach().cpu().numpy().astype(np.int64)
-
-    raw_candidates = []
-    for idx in range(len(scores_np)):
-        raw_candidates.append(
-            {
-                "raw_rank": int(idx),
-                "heat_index": int(inds_np[idx]),
-                "x": float(xs_np[idx]),
-                "y": float(ys_np[idx]),
-                "score": float(scores_np[idx]),
-                "wh": wh_np[idx].copy(),
-            }
-        )
-
-    selected_candidates = _select_spine_chain_candidates(
-        raw_candidates,
-        num_vertebrae=num_vertebrae,
+    candidate_count = max(int(candidate_top_k) if candidate_top_k is not None else 40, num_vertebrae)
+    decoder = DecDecoder(
+        K=num_vertebrae,
         conf_thresh=conf_thresh,
+        num_vertebrae=num_vertebrae,
+        decode_mode="spine_chain",
         down_ratio=down_ratio,
+        candidate_top_k=candidate_count,
         duplicate_radius_px=duplicate_radius_px,
         min_dy_px=min_dy_px,
         max_dy_px=max_dy_px,
@@ -535,7 +135,8 @@ def decode_centernet_8corners(
         relaxed_min_dy_scale=relaxed_min_dy_scale,
         relaxed_max_dy_scale=relaxed_max_dy_scale,
     )
-    if not selected_candidates:
+    pts2 = decoder.ctdet_decode(hm, wh, reg)
+    if pts2.size == 0:
         return (
             np.zeros((0, 2), dtype=np.float32),
             np.zeros((0, 4), dtype=np.float32),
@@ -543,23 +144,27 @@ def decode_centernet_8corners(
             np.zeros((0, 4, 2), dtype=np.float32),
         )
 
-    xs_sel = np.asarray([cand["x"] for cand in selected_candidates], dtype=np.float32)
-    ys_sel = np.asarray([cand["y"] for cand in selected_candidates], dtype=np.float32)
-    scores_sel = np.asarray([cand["score"] for cand in selected_candidates], dtype=np.float32)
-    wh_sel = np.asarray([cand["wh"] for cand in selected_candidates], dtype=np.float32)
-
-    tl = np.stack([xs_sel - wh_sel[:, 0], ys_sel - wh_sel[:, 1]], axis=1) * down_ratio
-    tr = np.stack([xs_sel - wh_sel[:, 2], ys_sel - wh_sel[:, 3]], axis=1) * down_ratio
-    bl = np.stack([xs_sel - wh_sel[:, 4], ys_sel - wh_sel[:, 5]], axis=1) * down_ratio
-    br = np.stack([xs_sel - wh_sel[:, 6], ys_sel - wh_sel[:, 7]], axis=1) * down_ratio
-
-    corners_inp = np.stack([tl, tr, bl, br], axis=1).astype(np.float32)
+    pts0 = pts2.copy()
+    pts0[:, :10] *= down_ratio
+    corners_inp = np.stack(
+        [
+            pts0[:, 2:4],
+            pts0[:, 4:6],
+            pts0[:, 6:8],
+            pts0[:, 8:10],
+        ],
+        axis=1,
+    ).astype(np.float32)
     x1 = np.min(corners_inp[:, :, 0], axis=1)
     y1 = np.min(corners_inp[:, :, 1], axis=1)
     x2 = np.max(corners_inp[:, :, 0], axis=1)
     y2 = np.max(corners_inp[:, :, 1], axis=1)
     boxes_inp = np.stack([x1, y1, x2, y2], axis=1).astype(np.float32)
-    pts_inp = np.stack([xs_sel, ys_sel], axis=1).astype(np.float32) * down_ratio
+    # The decoder already returns center/corner coordinates in heatmap space.
+    # After scaling the first 10 columns once, the centers in pts0[:, :2] are
+    # already back in resized-input pixels and must not be multiplied again.
+    pts_inp = pts0[:, :2].astype(np.float32)
+    scores_sel = pts0[:, 10].astype(np.float32)
 
     return pts_inp, boxes_inp, scores_sel, corners_inp
 
@@ -567,18 +172,35 @@ def decode_centernet_8corners(
 def scale_points_and_boxes_to_original(
     pts_inp: np.ndarray,
     boxes_inp: Optional[np.ndarray],
-    orig_w: int, orig_h: int, in_w: int, in_h: int
+    orig_w: int,
+    orig_h: int,
+    in_w: int,
+    in_h: int,
+    resize_meta: Optional[dict[str, float | int]] = None,
 ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
     """Rescale points and boxes back to the original image size."""
-    sx, sy = orig_w / in_w, orig_h / in_h
-    pts = pts_inp.copy()
-    pts[:, 0] *= sx
-    pts[:, 1] *= sy
+    if resize_meta is None:
+        resize_meta = build_resize_metadata(orig_w, orig_h, in_w, in_h)
+
+    pts = _invert_resize_for_points(pts_inp, resize_meta)
     boxes = None
     if boxes_inp is not None:
-        boxes = boxes_inp.copy()
-        boxes[:, [0, 2]] *= sx
-        boxes[:, [1, 3]] *= sy
+        boxes = boxes_inp.astype(np.float32).copy()
+        flat = np.stack(
+            [
+                boxes[:, [0, 1]],
+                boxes[:, [2, 1]],
+                boxes[:, [0, 3]],
+                boxes[:, [2, 3]],
+            ],
+            axis=1,
+        ).reshape(-1, 2)
+        flat = _invert_resize_for_points(flat, resize_meta).reshape(-1, 4, 2)
+        x1 = np.min(flat[:, :, 0], axis=1)
+        y1 = np.min(flat[:, :, 1], axis=1)
+        x2 = np.max(flat[:, :, 0], axis=1)
+        y2 = np.max(flat[:, :, 1], axis=1)
+        boxes = np.stack([x1, y1, x2, y2], axis=1).astype(np.float32)
     return pts, boxes
 
 def cobb_from_points(pts: np.ndarray) -> float:
@@ -804,22 +426,36 @@ def _draw_cobb_panel(
     side: str,
     bounds: tuple[float, float, float, float],
     scale: float,
+    panel_bounds: tuple[int, int, int, int] | None = None,
 ) -> None:
     cobb_angles = tuple(float(angle) for angle in cobb_angles) or (0.0,)
     h, w = img.shape[:2]
+    if panel_bounds is None:
+        panel_left, panel_top, panel_right, panel_bottom = 0, 0, w, h
+    else:
+        panel_left, panel_top, panel_right, panel_bottom = panel_bounds
+    panel_left = int(np.clip(panel_left, 0, w))
+    panel_top = int(np.clip(panel_top, 0, h))
+    panel_right = int(np.clip(panel_right, panel_left, w))
+    panel_bottom = int(np.clip(panel_bottom, panel_top, h))
+
     panel_w, panel_h = _metric_panel_size(cobb_angles, scale)
     margin = max(12, int(round(16 * scale)))
     gap = max(10, int(round(14 * scale)))
+    min_x = panel_left + margin
+    max_x = max(panel_right - margin - panel_w, min_x)
+    min_y = panel_top + margin
+    max_y = max(panel_bottom - margin - panel_h, min_y)
 
     if side == "right":
-        x1 = min(w - margin - panel_w, int(bounds[2] + gap))
+        x1 = min(max_x, int(bounds[2] + gap))
     else:
-        x1 = max(margin, int(bounds[0] - gap - panel_w))
-    x1 = int(np.clip(x1, margin, max(w - margin - panel_w, margin)))
+        x1 = max(min_x, int(bounds[0] - gap - panel_w))
+    x1 = int(np.clip(x1, min_x, max_x))
     x2 = x1 + panel_w
 
     center_y = int((bounds[1] + bounds[3]) * 0.5)
-    y1 = int(np.clip(center_y - panel_h // 2, margin, max(h - margin - panel_h, margin)))
+    y1 = int(np.clip(center_y - panel_h // 2, min_y, max_y))
     y2 = y1 + panel_h
 
     radius = max(10, int(round(12 * scale)))
@@ -1015,6 +651,7 @@ def draw_overlay(
         return out
 
     h, w = out.shape[:2]
+    image_h, image_w = h, w
     pts_f = pts.astype(np.float32)
     scale = max(0.85, min(1.8, min(h, w) / 760.0))
     bounds = _detection_bounds(pts_f, boxes, corners, w, h)
@@ -1047,8 +684,11 @@ def draw_overlay(
     elif label_side == "left" and left_room < max_chip_w <= right_room:
         label_side = "right"
 
-    if max(left_room, right_room) < max(max_chip_w, metric_w):
-        extra = max(max_chip_w, metric_w) - right_room + margin
+    panel_left_room = left_room
+    panel_right_room = right_room
+
+    if max(left_room, right_room) < max_chip_w:
+        extra = max_chip_w - right_room + margin
         out = cv2.copyMakeBorder(
             out,
             0,
@@ -1146,14 +786,21 @@ def draw_overlay(
     label_right_count = sum(1 for record in label_records if record["side"] == "right")
     label_side = "right" if label_right_count >= len(label_records) / 2 else "left"
     opposite_side = "left" if label_side == "right" else "right"
-    opposite_room = left_room if opposite_side == "left" else right_room
-    label_room = right_room if label_side == "right" else left_room
+    opposite_room = panel_left_room if opposite_side == "left" else panel_right_room
+    label_room = panel_right_room if label_side == "right" else panel_left_room
     cobb_side = opposite_side if opposite_room >= metric_w else label_side
     if label_room < metric_w <= opposite_room:
         cobb_side = opposite_side
 
     if len(pts_f) >= 3:
-        _draw_cobb_panel(out, cobb_angles, cobb_side, bounds, scale)
+        _draw_cobb_panel(
+            out,
+            cobb_angles,
+            cobb_side,
+            bounds,
+            scale,
+            panel_bounds=(0, 0, image_w, image_h),
+        )
 
     for record in label_records:
         _draw_label_chip(

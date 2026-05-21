@@ -3,7 +3,7 @@ import numpy as np
 
 
 def test_health_endpoint(client):
-    response = client.get("/")
+    response = client.get("/ap")
     assert response.status_code == 200
     assert response.json()["message"] == "OVCF AP API is running."
 

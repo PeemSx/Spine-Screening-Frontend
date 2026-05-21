@@ -18,7 +18,7 @@ OVCF Web-App/
 - `app/` – FastAPI application factory, configuration, routes, dependencies, lifespan hooks.
 - `core/` – Model loaders and inference helpers (`ap_infer.py`, `la_infer.py`, etc.).
 - `models/` – Torch architectures required by the AP model.
-- `weights/` – Expected location for `model_50.pth` (AP) and `best_100.pt` (LA).
+- `weights/` – Expected location for `ap/hrnet_w18.pth` (AP) and `best_100.pt` (LA).
 - `results/` – Generated imagery (`/results/ap` for AP overlays, `/results/la` for LA outputs).
 - `scripts/clear_results.py` – Utility to purge generated results while keeping folder structure.
 - `tests/` – Pytest API contracts with fixtures that stub Heavyweight models.
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 Create a `.env` (or export variables) if you need to override defaults in `app/config.py`:
 
 ```
-BACKEND_MODEL_WEIGHTS=weights/model_50.pth
+BACKEND_MODEL_WEIGHTS=weights/ap/hrnet_w18.pth
 BACKEND_LA_MODEL_WEIGHTS=weights/best_100.pt
 BACKEND_RESULTS_DIR=results
 BACKEND_LA_RESULTS_DIR=results/la

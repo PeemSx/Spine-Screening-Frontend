@@ -16,7 +16,7 @@ import {
   useComputedColorScheme,
 } from "@mantine/core";
 
-type CropAspectPreset = "original" | "portrait" | "square" | "tall";
+type CropAspectPreset = "free" | "original" | "portrait" | "square" | "tall";
 
 type Point = {
   x: number;
@@ -43,17 +43,39 @@ type ImageCropModalProps = {
 };
 
 const ASPECT_OPTIONS: { label: string; value: CropAspectPreset }[] = [
+  { label: "Free", value: "free" },
   { label: "Original", value: "original" },
   { label: "3:4", value: "portrait" },
   { label: "1:1", value: "square" },
   { label: "9:16", value: "tall" },
 ];
 
+const MIN_CROP_WIDTH = 140;
+const MIN_CROP_HEIGHT = 180;
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+function getCropBounds(stage: Size) {
+  const horizontalPadding = stage.width < 520 ? 24 : 40;
+  const verticalPadding = stage.height < 420 ? 24 : 40;
+  const maxWidth = Math.max(MIN_CROP_WIDTH, stage.width - horizontalPadding * 2);
+  const maxHeight = Math.max(MIN_CROP_HEIGHT, stage.height - verticalPadding * 2);
+
+  return {
+    horizontalPadding,
+    verticalPadding,
+    maxWidth,
+    maxHeight,
+  };
+}
+
 function getAspectRatio(preset: CropAspectPreset, imageSize: Size | null) {
+  if (preset === "free") {
+    return null;
+  }
+
   if (preset === "original") {
     if (!imageSize || imageSize.height === 0) {
       return 3 / 4;
@@ -73,11 +95,39 @@ function getAspectRatio(preset: CropAspectPreset, imageSize: Size | null) {
   return 3 / 4;
 }
 
-function getCropFrame(stage: Size, aspectRatio: number): CropFrame {
-  const horizontalPadding = stage.width < 520 ? 24 : 40;
-  const verticalPadding = stage.height < 420 ? 24 : 40;
-  const maxWidth = Math.max(140, stage.width - horizontalPadding * 2);
-  const maxHeight = Math.max(180, stage.height - verticalPadding * 2);
+function clampFreeCropSize(size: Size, stage: Size): Size {
+  const bounds = getCropBounds(stage);
+
+  return {
+    width: clamp(size.width, MIN_CROP_WIDTH, bounds.maxWidth),
+    height: clamp(size.height, MIN_CROP_HEIGHT, bounds.maxHeight),
+  };
+}
+
+function getDefaultFreeCropSize(stage: Size): Size {
+  const bounds = getCropBounds(stage);
+
+  return {
+    width: Math.max(MIN_CROP_WIDTH, bounds.maxWidth * 0.82),
+    height: Math.max(MIN_CROP_HEIGHT, bounds.maxHeight * 0.82),
+  };
+}
+
+function getCropFrame(stage: Size, aspectRatio: number | null, freeCropSize?: Size | null): CropFrame {
+  const bounds = getCropBounds(stage);
+
+  if (aspectRatio === null) {
+    const size = clampFreeCropSize(freeCropSize ?? getDefaultFreeCropSize(stage), stage);
+
+    return {
+      width: size.width,
+      height: size.height,
+      x: bounds.horizontalPadding + (bounds.maxWidth - size.width) / 2,
+      y: bounds.verticalPadding + (bounds.maxHeight - size.height) / 2,
+    };
+  }
+
+  const { maxWidth, maxHeight } = bounds;
 
   let width = Math.min(maxWidth, maxHeight * aspectRatio);
   let height = width / aspectRatio;
@@ -90,8 +140,8 @@ function getCropFrame(stage: Size, aspectRatio: number): CropFrame {
   return {
     width,
     height,
-    x: (stage.width - width) / 2,
-    y: (stage.height - height) / 2,
+    x: bounds.horizontalPadding + (maxWidth - width) / 2,
+    y: bounds.verticalPadding + (maxHeight - height) / 2,
   };
 }
 
@@ -137,6 +187,7 @@ export function ImageCropModal({
   const [imageSize, setImageSize] = useState<Size | null>(null);
   const [stageSize, setStageSize] = useState<Size>({ width: 0, height: 0 });
   const [aspectPreset, setAspectPreset] = useState<CropAspectPreset>(defaultAspect);
+  const [freeCropSize, setFreeCropSize] = useState<Size | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
@@ -227,23 +278,42 @@ export function ImageCropModal({
     }
 
     setAspectPreset(defaultAspect);
+    setFreeCropSize(null);
     setZoom(1);
     setOffset({ x: 0, y: 0 });
     setApplying(false);
   }, [opened, file, defaultAspect]);
+
+  useEffect(() => {
+    if (aspectPreset !== "free" || !stageSize.width || !stageSize.height) {
+      return;
+    }
+
+    setFreeCropSize((currentSize) =>
+      currentSize ? clampFreeCropSize(currentSize, stageSize) : getDefaultFreeCropSize(stageSize),
+    );
+  }, [aspectPreset, stageSize]);
 
   const aspectRatio = useMemo(
     () => getAspectRatio(aspectPreset, imageSize),
     [aspectPreset, imageSize],
   );
 
+  const cropBounds = useMemo(() => {
+    if (!stageSize.width || !stageSize.height) {
+      return null;
+    }
+
+    return getCropBounds(stageSize);
+  }, [stageSize]);
+
   const cropFrame = useMemo(() => {
     if (!stageSize.width || !stageSize.height) {
       return null;
     }
 
-    return getCropFrame(stageSize, aspectRatio);
-  }, [aspectRatio, stageSize]);
+    return getCropFrame(stageSize, aspectRatio, freeCropSize);
+  }, [aspectRatio, freeCropSize, stageSize]);
 
   const baseScale = useMemo(() => {
     if (!imageSize || !cropFrame) {
@@ -287,7 +357,11 @@ export function ImageCropModal({
 
   const canRenderCropper = Boolean(cropRenderState);
 
-  const resetView = () => {
+  const resetView = (preset: CropAspectPreset = aspectPreset) => {
+    if (preset === "free" && stageSize.width && stageSize.height) {
+      setFreeCropSize(getDefaultFreeCropSize(stageSize));
+    }
+
     setZoom(1);
     setOffset({ x: 0, y: 0 });
   };
@@ -419,13 +493,17 @@ export function ImageCropModal({
         <Group justify="space-between" align="center" gap="sm" style={{ flexWrap: "wrap" }}>
           <Stack gap={4}>
             <Text size="xs" fw={700} c={isDark ? "gray.5" : "dimmed"} tt="uppercase">
-              Crop ratio
+              Crop Mode
             </Text>
             <SegmentedControl
               value={aspectPreset}
               onChange={(value) => {
-                setAspectPreset(value as CropAspectPreset);
-                resetView();
+                const nextPreset = value as CropAspectPreset;
+                setAspectPreset(nextPreset);
+                if (nextPreset !== "free") {
+                  setFreeCropSize(null);
+                }
+                resetView(nextPreset);
               }}
               data={ASPECT_OPTIONS}
               fullWidth
@@ -447,7 +525,7 @@ export function ImageCropModal({
           </Stack>
 
           <Text size="sm" c={isDark ? "gray.4" : "dimmed"}>
-            Drag to position. Zoom to tighten the crop.
+            Drag to position. Use Free mode to adjust width and height independently.
           </Text>
         </Group>
 
@@ -541,6 +619,48 @@ export function ImageCropModal({
             )}
           </Box>
         </Paper>
+
+        {aspectPreset === "free" && cropFrame && cropBounds ? (
+          <Group grow align="flex-start">
+            <Stack gap={8}>
+              <Text size="sm" fw={600} c={isDark ? "gray.2" : "dark.7"}>
+                Crop width
+              </Text>
+              <Slider
+                min={MIN_CROP_WIDTH}
+                max={cropBounds.maxWidth}
+                step={1}
+                value={cropFrame.width}
+                onChange={(value) =>
+                  setFreeCropSize((currentSize) => ({
+                    width: value,
+                    height: currentSize?.height ?? cropFrame.height,
+                  }))
+                }
+                label={(value) => `${Math.round(value)} px`}
+              />
+            </Stack>
+
+            <Stack gap={8}>
+              <Text size="sm" fw={600} c={isDark ? "gray.2" : "dark.7"}>
+                Crop height
+              </Text>
+              <Slider
+                min={MIN_CROP_HEIGHT}
+                max={cropBounds.maxHeight}
+                step={1}
+                value={cropFrame.height}
+                onChange={(value) =>
+                  setFreeCropSize((currentSize) => ({
+                    width: currentSize?.width ?? cropFrame.width,
+                    height: value,
+                  }))
+                }
+                label={(value) => `${Math.round(value)} px`}
+              />
+            </Stack>
+          </Group>
+        ) : null}
 
         <Group justify="space-between" align="center" gap="sm" style={{ flexWrap: "wrap" }}>
           <Stack gap={8} miw={240} style={{ flex: 1 }}>

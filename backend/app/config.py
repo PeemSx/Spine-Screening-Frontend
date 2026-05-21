@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class Settings(BaseModel):
     allow_origins: List[str] = Field(default_factory=lambda: ["http://localhost:3000"])
-    model_weights_path: Path = Field(default=Path("weights/model_50.pth"))
+    model_weights_path: Path = Field(default=Path("weights/ap/hrnet_w18.pth"))
     results_dir: Path = Field(default=Path("results"))
     la_model_weights_path: Path = Field(default=Path("weights/best_100.pt"))
     la_results_dir: Path = Field(default=Path("results/la"))
@@ -42,7 +42,7 @@ def get_settings() -> Settings:
     else:
         allow_origins = ["http://localhost:3000"]
 
-    model_weights_raw = os.getenv("BACKEND_MODEL_WEIGHTS", "weights/model_50.pth")
+    model_weights_raw = os.getenv("BACKEND_MODEL_WEIGHTS", "weights/ap/hrnet_w18.pth")
     la_model_weights_raw = os.getenv("BACKEND_LA_MODEL_WEIGHTS", "weights/best_100.pt")
     results_dir_raw = os.getenv("BACKEND_RESULTS_DIR", "results")
     la_results_dir_raw = os.getenv("BACKEND_LA_RESULTS_DIR", "results/la")

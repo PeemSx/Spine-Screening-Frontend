@@ -52,7 +52,7 @@ export const aboutContent: {
       {
         title: 'Run model-specific inference',
         description:
-          'AP requests use the SpineNet-based pipeline, while LA requests use a YOLO model loaded from local weights.',
+          'AP requests use the HRNet-based pipeline, while LA requests use a YOLO model loaded from local weights.',
         detail:
           'Both flows write generated outputs into backend results directories before returning the response payload.',
       },

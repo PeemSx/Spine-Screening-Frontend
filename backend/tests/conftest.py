@@ -1,3 +1,4 @@
+import importlib
 from typing import Iterator
 
 import cv2
@@ -5,6 +6,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import create_app
+
+lifespan_module = importlib.import_module("app.lifespan")
+ap_routes = importlib.import_module("app.routes.ap")
+la_routes = importlib.import_module("app.routes.la")
 
 
 @pytest.fixture(name="client")
@@ -38,9 +43,13 @@ def client_fixture(monkeypatch: pytest.MonkeyPatch, tmp_path) -> Iterator[TestCl
         }
 
     monkeypatch.setattr("core.ap_infer.load_model", fake_load_model)
+    monkeypatch.setattr(lifespan_module, "load_model", fake_load_model)
     monkeypatch.setattr("core.ap_infer.run_inference", fake_run_inference)
+    monkeypatch.setattr(ap_routes, "run_inference", fake_run_inference)
     monkeypatch.setattr("core.la_infer.load_la_model", fake_load_la_model)
+    monkeypatch.setattr(lifespan_module, "load_la_model", fake_load_la_model)
     monkeypatch.setattr("core.la_infer.run_la_inference", fake_run_la_inference)
+    monkeypatch.setattr(la_routes, "run_la_inference", fake_run_la_inference)
     monkeypatch.setenv("BACKEND_RESULTS_DIR", str(tmp_path))
     monkeypatch.setenv("BACKEND_LA_RESULTS_DIR", str(tmp_path / "la"))
 

@@ -11,9 +11,11 @@ import numpy as np
 import torch
 
 from core.cobb import cobb_result_from_corners
-from models.spinal_net import SpineNet
+from models.ap_model import APHRNetModel
 from core.utils_ap import (
     decode_centernet_8corners,
+    resize_with_aspect_padding,
+    scale_corners_to_original,
     scale_points_and_boxes_to_original,
     draw_overlay,
     draw_heatmap_overlay,
@@ -25,7 +27,7 @@ logger = logging.getLogger(__name__)
 # ====== MUST MATCH TRAINING ======
 DOWN_RATIO   = 4
 NUM_CLASSES  = 1
-K_VERTEBRAE  = 17
+K_VERTEBRAE  = 5
 CANDIDATE_TOP_K = 40
 CONF_THRESH  = 0.20
 HEADS        = {"hm": NUM_CLASSES, "reg": 2, "wh": 8}
@@ -55,18 +57,16 @@ def _format_cobb_vertebra_pairs(cobb_result) -> list[dict[str, Any]]:
 
 def load_model(weight_path: Union[str, os.PathLike]) -> torch.nn.Module:
     """
-    Load SpineNet weights for inference on CPU.
+    Load the HRNet-backed AP model for inference on CPU.
 
     Args:
         weight_path (str | os.PathLike): Path to the model weights file.
 
     Returns:
-        torch.nn.Module: Loaded SpineNet model in evaluation mode.
+        torch.nn.Module: Loaded AP model in evaluation mode.
     """
-    model = SpineNet(
+    model = APHRNetModel(
         heads=HEADS,
-        pretrained=False,  # Disable loading pretrained weights from internet
-        down_ratio=DOWN_RATIO,
         final_kernel=FINAL_KERNEL,
         head_conv=HEAD_CONV,
     )
@@ -82,6 +82,21 @@ def load_model(weight_path: Union[str, os.PathLike]) -> torch.nn.Module:
     return model
 
 
+def prepare_ap_input_tensor(
+    bgr_img: np.ndarray,
+) -> tuple[torch.Tensor, dict[str, float | int]]:
+    """Match the training-time AP preprocessing exactly.
+
+    The training and reference single-image inference code in `best-ai-award-2025`
+    now use aspect-preserving resize with padding, plus normalization of
+    `image / 255 - 0.5`. It does not convert to RGB.
+    """
+    resized, resize_meta = resize_with_aspect_padding(bgr_img, IN_W, IN_H, pad_value=0)
+    inp = resized.astype(np.float32) / 255.0 - 0.5
+    tensor = torch.from_numpy(np.transpose(inp, (2, 0, 1))).unsqueeze(0)
+    return tensor, resize_meta
+
+
 @torch.no_grad()
 def run_inference(
     model: torch.nn.Module,
@@ -90,10 +105,10 @@ def run_inference(
     max_saved_results: int | None = None,
 ) -> Dict[str, Any]:
     """
-    Perform single-image inference for AP X-ray using the SpineNet model.
+    Perform single-image inference for AP X-ray using the HRNet AP model.
 
     Args:
-        model (torch.nn.Module): Loaded SpineNet model.
+        model (torch.nn.Module): Loaded AP model.
         bgr_img (np.ndarray): Input image in BGR format.
         results_dir (str | os.PathLike): Directory path to save inference results.
 
@@ -104,10 +119,7 @@ def run_inference(
     orig_h, orig_w = bgr_img.shape[:2]
 
     # ---------- preprocess ----------
-    rgb = cv2.cvtColor(bgr_img, cv2.COLOR_BGR2RGB)
-    resized = cv2.resize(rgb, (IN_W, IN_H))
-    inp = resized.astype(np.float32) / 255.0
-    tensor = torch.from_numpy(inp.transpose(2, 0, 1)).unsqueeze(0)
+    tensor, resize_meta = prepare_ap_input_tensor(bgr_img)
 
     # ---------- forward ----------
     dec = model(tensor)
@@ -141,7 +153,15 @@ def run_inference(
         }
 
     # scale back to original image size
-    pts, boxes = scale_points_and_boxes_to_original(pts_inp, boxes_inp, orig_w, orig_h, IN_W, IN_H)
+    pts, boxes = scale_points_and_boxes_to_original(
+        pts_inp,
+        boxes_inp,
+        orig_w,
+        orig_h,
+        IN_W,
+        IN_H,
+        resize_meta=resize_meta,
+    )
     corners = None
     width_ratios = None
     if corners_inp is not None and corners_inp.size > 0:
@@ -149,9 +169,14 @@ def run_inference(
         bot_len = np.linalg.norm(corners_inp[:, 3] - corners_inp[:, 2], axis=1)
         width_ratios = np.maximum(top_len, bot_len) / float(IN_W)
     if corners_inp is not None and corners_inp.size > 0:
-        corners = corners_inp.copy()
-        corners[..., 0] *= orig_w / IN_W
-        corners[..., 1] *= orig_h / IN_H
+        corners = scale_corners_to_original(
+            corners_inp,
+            orig_w,
+            orig_h,
+            IN_W,
+            IN_H,
+            resize_meta=resize_meta,
+        )
     order = np.argsort(pts[:, 1])
     pts, boxes, scores = pts[order], boxes[order], scores[order]
     if corners is not None:
@@ -233,4 +258,3 @@ def _trim_ap_results(ap_dir: Path, max_saved: int | None) -> None:
                 heatmap_path.unlink()
             except OSError as exc:
                 logger.warning("Failed to delete old AP heatmap %s: %s", heatmap_path, exc)
-
