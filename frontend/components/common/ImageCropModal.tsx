@@ -678,7 +678,11 @@ export function ImageCropModal({
           </Stack>
 
           <Group gap="sm">
-            <Button variant="default" onClick={resetView} disabled={!canRenderCropper || applying}>
+            <Button
+              variant="default"
+              onClick={() => resetView()}
+              disabled={!canRenderCropper || applying}
+            >
               Reset
             </Button>
             <Button variant={isDark ? "default" : "subtle"} onClick={onClose} disabled={applying}>
