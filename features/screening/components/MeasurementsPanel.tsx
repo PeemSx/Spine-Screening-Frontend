@@ -13,6 +13,7 @@ import {
   Title,
   UnstyledButton,
 } from "@mantine/core";
+import { useEffect, useRef } from "react";
 import type { MorphologyFeature, VertebraPrediction } from "../api/generated";
 import type { PredictionStatus } from "../hooks/usePrediction";
 import {
@@ -162,6 +163,8 @@ export function MeasurementsPanel({
   selectedCandidateId,
   onSelectCandidate,
 }: MeasurementsPanelProps) {
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
+  const assessmentRows = useRef(new Map<number, HTMLButtonElement>());
   const assessments = analyzeMorphology(morphology, vertebrae);
   const selected =
     assessments.find(
@@ -171,6 +174,27 @@ export function MeasurementsPanel({
     1,
     ...assessments.map((assessment) => assessment.currentHeightPx),
   );
+
+  useEffect(() => {
+    if (selectedCandidateId === null) return;
+
+    const viewport = scrollViewportRef.current;
+    const selectedRow = assessmentRows.current.get(selectedCandidateId);
+    if (!viewport || !selectedRow) return;
+
+    const viewportBounds = viewport.getBoundingClientRect();
+    const rowBounds = selectedRow.getBoundingClientRect();
+    const centeredScrollTop =
+      viewport.scrollTop +
+      rowBounds.top -
+      viewportBounds.top -
+      (viewportBounds.height - rowBounds.height) / 2;
+
+    viewport.scrollTo({
+      behavior: "smooth",
+      top: Math.max(0, centeredScrollTop),
+    });
+  }, [selectedCandidateId, assessments.length]);
 
   return (
     <Card withBorder radius="md" p="md" shadow="sm" h="100%">
@@ -198,7 +222,11 @@ export function MeasurementsPanel({
           <>
             <SelectedAssessment assessment={selected} />
 
-            <ScrollArea.Autosize mah={520} offsetScrollbars>
+            <ScrollArea.Autosize
+              mah={520}
+              offsetScrollbars
+              viewportRef={scrollViewportRef}
+            >
               <Stack gap="xs" pr="xs">
                 {assessments.map((assessment) => {
                   const isSelected = assessment.candidateId === selected.candidateId;
@@ -212,6 +240,13 @@ export function MeasurementsPanel({
                       aria-pressed={isSelected}
                       key={assessment.candidateId}
                       onClick={() => onSelectCandidate(assessment.candidateId)}
+                      ref={(element) => {
+                        if (element) {
+                          assessmentRows.current.set(assessment.candidateId, element);
+                        } else {
+                          assessmentRows.current.delete(assessment.candidateId);
+                        }
+                      }}
                       style={{ width: "100%" }}
                     >
                       <Paper

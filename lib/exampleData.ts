@@ -1,6 +1,6 @@
 import type { ExampleOption } from "@/types/examples";
 
-export const AP_EXAMPLE_OPTIONS: ExampleOption[] = [
+export const SCREENING_EXAMPLE_OPTIONS: ExampleOption[] = [
   {
     label: "NIH Example",
     src: "/images/examples/NIH_00006596_003.png",
@@ -25,8 +25,9 @@ export const AP_EXAMPLE_OPTIONS: ExampleOption[] = [
     label: "Mendeley PA Example",
     src: "/images/examples/MENDE-PA-00564.jpg",
     fileName: "MENDE-PA-00564.jpg",
-  },  {
-    label: "Fractured AP Example",
+  },
+  {
+    label: "AP Morphology Example",
     src: "/images/examples/ap_fract.png",
     fileName: "ap_fract.png",
   },

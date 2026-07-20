@@ -25,7 +25,6 @@ type NavLink = {
 
 const navLinks: NavLink[] = [
   { label: 'Screening', href: '/screening', isPrimary: true },
-  { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ];
 

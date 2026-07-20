@@ -17,7 +17,7 @@ import {
   SCREENING_MAX_UPLOAD_BYTES,
 } from "@/config/env";
 import { ExampleSelector } from "@/components/common/ExampleSelector";
-import { AP_EXAMPLE_OPTIONS } from "@/lib/exampleData";
+import { SCREENING_EXAMPLE_OPTIONS } from "@/lib/exampleData";
 import type { ExampleSelection } from "@/types/examples";
 import type { ScreeningApiError } from "../api/errors";
 import type { PredictionStatus } from "../hooks/usePrediction";
@@ -104,7 +104,7 @@ export function UploadPanel({
 
           <Group gap="sm">
             <ExampleSelector
-              examples={AP_EXAMPLE_OPTIONS}
+              examples={SCREENING_EXAMPLE_OPTIONS}
               onSelect={handleExampleSelect}
               buttonLabel="Choose example"
               description="Loads a bundled AP or PA demo radiograph"
