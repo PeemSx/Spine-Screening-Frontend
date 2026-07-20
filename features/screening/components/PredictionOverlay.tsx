@@ -43,6 +43,7 @@ import type {
   VertebraPrediction,
 } from "../api/generated";
 import type { PredictionStatus } from "../hooks/usePrediction";
+import { MORPHOLOGY_FLAGGING_CONFIG } from "../morphology/config";
 
 interface PredictionOverlayProps {
   imageUrl: string | null;
@@ -116,7 +117,8 @@ const VERTEBRA_POINT_COLORS = [
   "#ffffff",
 ] as const;
 
-const LOW_CONFIDENCE_THRESHOLD = 0.3;
+const LOW_CONFIDENCE_THRESHOLD =
+  MORPHOLOGY_FLAGGING_CONFIG.acceptableDetectorScore;
 
 const DEFAULT_OVERLAY_VISIBILITY: OverlayVisibility = {
   landmarks: true,
