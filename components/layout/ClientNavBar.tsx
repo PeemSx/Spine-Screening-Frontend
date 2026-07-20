@@ -39,7 +39,7 @@ const NavBar = dynamic(() => import('./NavBar'), {
               fontSize: '1.125rem',
             }}
           >
-            OVCF Detector
+            Spine Opportunistic Screening
           </Link>
 
           <div

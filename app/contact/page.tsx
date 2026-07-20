@@ -48,7 +48,7 @@ export default function Page() {
             Contact & Team
           </Title>
           <Text ta="center" maw={620} c="gray.6">
-            Reach out to the people behind the OVCF project. Connect with the
+            Reach out to the people behind the Spine Opportunistic Screening project. Connect with the
             development team or contact our medical advisors for collaboration
             and research opportunities.
           </Text>
@@ -56,7 +56,7 @@ export default function Page() {
 
         <TeamSection
           title="Development Team"
-          description="Engineering students developing the OVCF detection platform."
+          description="Engineering students developing the spine screening-support platform."
           members={developers}
         />
 

@@ -149,14 +149,33 @@ export function AboutHero({
                           justifyContent: 'space-between',
                         }}
                       >
-                        <Image
-                          src={item.src}
-                          alt={item.alt}
-                          radius={0}
-                          fit="cover"
-                          h={320}
-                          w="100%"
-                        />
+                        <Box bg="black" h={430} pos="relative" style={{ overflow: 'hidden' }}>
+                          <Image
+                            src={item.src}
+                            alt={item.alt}
+                            fit="cover"
+                            h="100%"
+                            style={{ position: 'relative', zIndex: 1 }}
+                            w="100%"
+                          />
+                          {item.overlaySrc ? (
+                            <Box
+                              component="img"
+                              src={item.overlaySrc}
+                              alt=""
+                              aria-hidden
+                              style={{
+                                height: '100%',
+                                inset: 0,
+                                objectFit: 'cover',
+                                pointerEvents: 'none',
+                                position: 'absolute',
+                                width: '100%',
+                                zIndex: 2,
+                              }}
+                            />
+                          ) : null}
+                        </Box>
                         {item.caption ? (
                           <Text
                             size="sm"
@@ -178,8 +197,8 @@ export function AboutHero({
                     Data-driven pipeline
                   </Title>
                   <Text c="rgba(255,255,255,0.75)">
-                    Integrated annotation, model training, and evaluation
-                    workflow tailored for vertebral fracture detection.
+                    A hosted inference API returns vertebral landmarks and
+                    measurements for transparent review in the browser.
                   </Text>
                 </Stack>
               )}

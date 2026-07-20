@@ -24,8 +24,8 @@ type NavLink = {
 };
 
 const navLinks: NavLink[] = [
-  { label: 'AP', href: '/ap', isPrimary: true },
-  { label: 'LA', href: '/la', isPrimary: true },
+  { label: 'Screening', href: '/screening', isPrimary: true },
+  { label: 'About', href: '/about' },
   { label: 'Contact', href: '/contact' },
 ];
 
@@ -124,15 +124,15 @@ export default function NavBar() {
           {/* Logo */}
           <Anchor component={Link} href="/" underline="never">
             <Text fw={700} size="lg" c="blue.7">
-              OVCF Detector
+              Spine Opportunistic Screening
             </Text>
           </Anchor>
 
           {/* Desktop Navigation */}
           <Group gap="xl" grow={false} className={classes.desktopNav}>
-            <Group gap="md">{desktopLinks.slice(0, 2)}</Group>
+            <Group gap="md">{desktopLinks.slice(0, 1)}</Group>
             <Divider orientation="vertical" />
-            <Group gap="md">{desktopLinks.slice(2)}</Group>
+            <Group gap="md">{desktopLinks.slice(1)}</Group>
             <ThemeToggle />
           </Group>
 
@@ -159,7 +159,7 @@ export default function NavBar() {
             Demo
           </Text>
           <Group gap="sm" grow>
-            {mobileLinks.slice(0, 2)}
+            {mobileLinks.slice(0, 1)}
           </Group>
 
           <Divider my="sm" />
@@ -167,7 +167,7 @@ export default function NavBar() {
           <Text fw={600} size="xs" c="gray.6" tt="uppercase">
             More
           </Text>
-          <Stack gap="sm">{mobileLinks.slice(2)}</Stack>
+          <Stack gap="sm">{mobileLinks.slice(1)}</Stack>
         </Stack>
       </Drawer>
     </Box>

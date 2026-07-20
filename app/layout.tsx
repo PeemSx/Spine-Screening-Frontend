@@ -1,10 +1,12 @@
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
 import '@mantine/core/styles.css';
+import '@mantine/dropzone/styles.css';
 import ClientNavBar from '@/components/layout/ClientNavBar';
 
 export const metadata = {
-  title: 'AI-Assisted Detection of OVCF',
-  description: 'A web application for AI-assisted detection of osteoporotic vertebral compression fractures (OVCF).',
+  title: 'Spine Opportunistic Screening',
+  description:
+    'A research web application for spine screening-support measurements from radiographs. Outputs are not a diagnosis and require clinical interpretation.',
 };
 
 export default function RootLayout({

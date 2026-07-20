@@ -6,6 +6,7 @@ export type HeroStat = {
 
 export type HeroImage = {
   src: string;
+  overlaySrc?: string;
   alt: string;
   caption?: string;
 };

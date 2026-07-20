@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1108 1477">
+  <g fill="none" stroke-linecap="butt">
+    <line x1="450.18" y1="505.94" x2="570.86" y2="492.66" stroke="#ffff00" stroke-width="5"/>
+    <line x1="440.80" y1="872.08" x2="589.40" y2="876.65" stroke="#ffff00" stroke-width="5"/>
+    <line x1="439.57" y1="435.65" x2="556.26" y2="423.36" stroke="#ffa500" stroke-width="5" stroke-dasharray="14 7"/>
+    <line x1="450.18" y1="505.94" x2="570.86" y2="492.66" stroke="#ffa500" stroke-width="5" stroke-dasharray="14 7"/>
+  </g>
+
+  <g fill="#ffff00" stroke="#111" stroke-width="1">
+    <circle cx="436.65" cy="398.66" r="7"/><circle cx="550.61" cy="388.07" r="7"/>
+    <circle cx="442.50" cy="472.63" r="7"/><circle cx="561.91" cy="458.65" r="7"/>
+  </g>
+  <g fill="#00ff00" stroke="#111" stroke-width="1">
+    <circle cx="447.11" cy="476.06" r="7"/><circle cx="566.39" cy="460.69" r="7"/>
+    <circle cx="453.26" cy="535.83" r="7"/><circle cx="575.33" cy="524.63" r="7"/>
+  </g>
+  <g fill="#00bfff" stroke="#111" stroke-width="1">
+    <circle cx="447.99" cy="560.51" r="7"/><circle cx="575.78" cy="545.66" r="7"/>
+    <circle cx="453.53" cy="634.81" r="7"/><circle cx="586.19" cy="626.46" r="7"/>
+  </g>
+  <g fill="#ff00ff" stroke="#111" stroke-width="1">
+    <circle cx="457.56" cy="650.21" r="7"/><circle cx="594.26" cy="643.70" r="7"/>
+    <circle cx="456.07" cy="721.03" r="7"/><circle cx="599.47" cy="719.45" r="7"/>
+  </g>
+  <g fill="#ffa500" stroke="#111" stroke-width="1">
+    <circle cx="452.86" cy="744.57" r="7"/><circle cx="600.72" cy="743.93" r="7"/>
+    <circle cx="449.08" cy="817.86" r="7"/><circle cx="603.94" cy="820.27" r="7"/>
+  </g>
+  <g fill="#ff0000" stroke="#111" stroke-width="1">
+    <circle cx="443.10" cy="835.89" r="7"/><circle cx="589.02" cy="840.99" r="7"/>
+    <circle cx="438.50" cy="908.27" r="7"/><circle cx="589.78" cy="912.30" r="7"/>
+  </g>
+
+  <g font-family="Arial, sans-serif" font-size="30" text-anchor="middle">
+    <line x1="498" y1="430" x2="340" y2="430" stroke="#ffa500" stroke-width="1.5"/>
+    <rect x="235" y="405" width="210" height="48" fill="#ffa500" fill-opacity=".92"/>
+    <text x="340" y="439" fill="#000">Cobb 2: 0.3</text>
+
+    <line x1="527" y1="683" x2="355" y2="683" stroke="#ffff00" stroke-width="1.5"/>
+    <rect x="250" y="658" width="210" height="48" fill="#ffff00" fill-opacity=".92"/>
+    <text x="355" y="692" fill="#000">Cobb 1: 8.0</text>
+  </g>
+</svg>
