@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Loader, Menu, Text } from "@mantine/core";
 import { IconChevronDown } from "@tabler/icons-react";
 import type { ExampleOption, ExampleSelection } from "@/types/examples";
@@ -19,25 +19,52 @@ export function ExampleSelector({
   description,
 }: ExampleSelectorProps) {
   const [loading, setLoading] = useState(false);
+  const controllerRef = useRef<AbortController | null>(null);
+  const requestSequenceRef = useRef(0);
 
   const handleSelect = async (example: ExampleOption) => {
+    controllerRef.current?.abort();
+    const requestSequence = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestSequence;
+    const controller = new AbortController();
+    controllerRef.current = controller;
     setLoading(true);
     try {
-      const response = await fetch(example.src);
+      const response = await fetch(example.src, { signal: controller.signal });
       if (!response.ok) {
         throw new Error(`Failed to fetch ${example.src}`);
       }
       const blob = await response.blob();
+      if (requestSequenceRef.current !== requestSequence) return;
       const mimeType = blob.type || "image/jpeg";
       const fileName = example.fileName ?? example.src.split("/").pop() ?? "example.jpg";
-      const file = new File([blob], fileName, { type: mimeType });
+      // Bundled examples do not have a filesystem modification time. Keep it
+      // stable so selecting the same example twice is caught by batch
+      // fingerprint deduplication.
+      const file = new File([blob], fileName, {
+        lastModified: 0,
+        type: mimeType,
+      });
       onSelect({ example, file });
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.error("Unable to load example image", error);
     } finally {
-      setLoading(false);
+      if (requestSequenceRef.current === requestSequence) {
+        controllerRef.current = null;
+        setLoading(false);
+      }
     }
   };
+
+  useEffect(
+    () => () => {
+      requestSequenceRef.current += 1;
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+    },
+    [],
+  );
 
   return (
     <Menu withinPortal shadow="md">

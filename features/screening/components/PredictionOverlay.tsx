@@ -39,15 +39,21 @@ import type {
   CobbLine,
   CobbResult,
   ImageInfo,
+  MorphologyFeature,
   Point,
   VertebraPrediction,
 } from "../api/generated";
-import type { PredictionStatus } from "../hooks/usePrediction";
+import type { PredictionStatus } from "../types";
+import {
+  analyzeMorphology,
+  type MorphologySignalStatus,
+} from "../morphology/analysis";
 import { MORPHOLOGY_FLAGGING_CONFIG } from "../morphology/config";
 
 interface PredictionOverlayProps {
   imageUrl: string | null;
   image: ImageInfo | null;
+  morphology: readonly MorphologyFeature[];
   vertebrae: readonly VertebraPrediction[];
   cobb: CobbResult | null;
   status: PredictionStatus;
@@ -75,6 +81,7 @@ interface OverlayVisibility {
   landmarks: boolean;
   cobbLines: boolean;
   cobbLabels: boolean;
+  morphologyMarkers: boolean;
   reliabilityMarkers: boolean;
 }
 
@@ -124,6 +131,7 @@ const DEFAULT_OVERLAY_VISIBILITY: OverlayVisibility = {
   landmarks: true,
   cobbLines: true,
   cobbLabels: true,
+  morphologyMarkers: true,
   reliabilityMarkers: true,
 };
 
@@ -132,6 +140,13 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 8;
 const ZOOM_STEP = 1.25;
 const SELECTED_VERTEBRA_ZOOM = 3;
+
+const MARKED_MORPHOLOGY_STATUSES = new Set<MorphologySignalStatus>([
+  "borderline_morphology_signal",
+  "suspicious_morphology_signal",
+  "high_priority_morphology_signal",
+  "marked_height_change",
+]);
 
 const COBB_ANGLE_BANDS: readonly CobbAngleBand[] = [
   {
@@ -518,6 +533,57 @@ function LowConfidenceCenter({
   );
 }
 
+function MorphologySignalMarker({
+  image,
+  renderScale = 1,
+  status,
+  vertebra,
+}: {
+  image: ImageInfo;
+  renderScale?: number;
+  status: MorphologySignalStatus;
+  vertebra: VertebraPrediction;
+}) {
+  const corners = Object.values(vertebra.corners);
+  const minimumX = Math.min(...corners.map((corner) => corner.x));
+  const maximumX = Math.max(...corners.map((corner) => corner.x));
+  const minimumY = Math.min(...corners.map((corner) => corner.y));
+  const maximumY = Math.max(...corners.map((corner) => corner.y));
+  const centerY = (minimumY + maximumY) * 0.5;
+  const maximumDimension = Math.max(image.width, image.height);
+  const markerSize = Math.max(8, maximumDimension * 0.012) / renderScale;
+  const markerHalfHeight = markerSize * 0.58;
+  const gap = Math.max(3, maximumDimension * 0.004) / renderScale;
+  const hasLeftSpace = minimumX - gap - markerSize >= 0;
+  const mustUseLeft = maximumX + gap + markerSize > image.width;
+  const placeOnLeft = hasLeftSpace || mustUseLeft;
+  const tipX = placeOnLeft ? minimumX - gap : maximumX + gap;
+  const baseX = placeOnLeft ? tipX - markerSize : tipX + markerSize;
+  const points = `${tipX},${centerY} ${baseX},${
+    centerY - markerHalfHeight
+  } ${baseX},${centerY + markerHalfHeight}`;
+
+  return (
+    <g
+      aria-label={`Detected vertebra ${vertebra.rank}, morphology screening signal`}
+      data-morphology-status={status}
+      pointerEvents="none"
+    >
+      <title>
+        Detected vertebra {vertebra.rank}: morphology screening signal
+      </title>
+      <polygon
+        fill="#ff2d2d"
+        points={points}
+        stroke="#ffffff"
+        strokeLinejoin="round"
+        strokeWidth={0.9}
+        vectorEffect="non-scaling-stroke"
+      />
+    </g>
+  );
+}
+
 function OverlayLayerControls({
   visibility,
   onChange,
@@ -560,6 +626,13 @@ function OverlayLayerControls({
             label="Cobb labels"
             onChange={(event) =>
               onChange("cobbLabels", event.currentTarget.checked)
+            }
+          />
+          <Checkbox
+            checked={visibility.morphologyMarkers}
+            label="Morphology markers"
+            onChange={(event) =>
+              onChange("morphologyMarkers", event.currentTarget.checked)
             }
           />
           <Checkbox
@@ -619,11 +692,32 @@ function CobbAngleLegend() {
   );
 }
 
+function MorphologyMarkerLegend() {
+  return (
+    <Group gap={6} wrap="nowrap">
+      <Box
+        aria-hidden="true"
+        style={{
+          borderBottom: "5px solid transparent",
+          borderLeft: "9px solid #ff2d2d",
+          borderTop: "5px solid transparent",
+          height: 0,
+          width: 0,
+        }}
+      />
+      <Text c="dimmed" size="xs">
+        Morphology screening signal
+      </Text>
+    </Group>
+  );
+}
+
 interface PredictionCanvasProps {
   focusSelected: boolean;
   image: ImageInfo;
   imageUrl: string;
   measurements: readonly CobbMeasurement[];
+  morphologyMarkerStatuses: ReadonlyMap<number, MorphologySignalStatus>;
   onDoubleClick?: (event: ReactMouseEvent<SVGSVGElement>) => void;
   onKeyDown?: (event: KeyboardEvent<SVGSVGElement>) => void;
   onPointerCancel?: (event: ReactPointerEvent<SVGSVGElement>) => void;
@@ -646,6 +740,7 @@ function PredictionCanvas({
   image,
   imageUrl,
   measurements,
+  morphologyMarkerStatuses,
   onDoubleClick,
   onKeyDown,
   onPointerCancel,
@@ -754,10 +849,17 @@ function PredictionCanvas({
         const cornerRadius =
           Math.max(2.5, Math.max(image.width, image.height) * 0.003) /
           renderScale;
+        const morphologyStatus = morphologyMarkerStatuses.get(
+          vertebra.candidate_id,
+        );
 
         return (
           <g
-            aria-label={`Detected vertebra ${vertebra.rank}`}
+            aria-label={
+              morphologyStatus
+                ? `Detected vertebra ${vertebra.rank}, morphology screening signal`
+                : `Detected vertebra ${vertebra.rank}`
+            }
             aria-pressed={selected}
             key={vertebra.candidate_id}
             onClick={() => {
@@ -814,6 +916,26 @@ function PredictionCanvas({
             ))
           : null}
       </g>
+
+      {overlayVisibility.morphologyMarkers ? (
+        <g aria-label="Morphology screening markers" pointerEvents="none">
+          {orderedVertebrae.map((vertebra) => {
+            const morphologyStatus = morphologyMarkerStatuses.get(
+              vertebra.candidate_id,
+            );
+
+            return morphologyStatus ? (
+              <MorphologySignalMarker
+                image={image}
+                key={`morphology-marker-${vertebra.candidate_id}`}
+                renderScale={renderScale}
+                status={morphologyStatus}
+                vertebra={vertebra}
+              />
+            ) : null;
+          })}
+        </g>
+      ) : null}
     </svg>
   );
 }
@@ -822,6 +944,7 @@ interface PredictionZoomModalProps {
   image: ImageInfo;
   imageUrl: string;
   measurements: readonly CobbMeasurement[];
+  morphologyMarkerStatuses: ReadonlyMap<number, MorphologySignalStatus>;
   onChangeLayer: (layer: keyof OverlayVisibility, visible: boolean) => void;
   onClose: () => void;
   onSelectCandidate: (candidateId: number) => void;
@@ -836,6 +959,7 @@ function PredictionZoomModal({
   image,
   imageUrl,
   measurements,
+  morphologyMarkerStatuses,
   onChangeLayer,
   onClose,
   onSelectCandidate,
@@ -1360,6 +1484,7 @@ function PredictionZoomModal({
             image={image}
             imageUrl={imageUrl}
             measurements={measurements}
+            morphologyMarkerStatuses={morphologyMarkerStatuses}
             onDoubleClick={handleDoubleClick}
             onPointerCancel={finishPointerInteraction}
             onPointerDown={handlePointerDown}
@@ -1397,7 +1522,12 @@ function PredictionZoomModal({
           style={{ borderTop: "1px solid var(--mantine-color-dark-4)" }}
           wrap="wrap"
         >
-          {measurements.length > 0 ? <CobbAngleLegend /> : <span />}
+          <Stack gap="xs">
+            {measurements.length > 0 ? <CobbAngleLegend /> : null}
+            {morphologyMarkerStatuses.size > 0 ? (
+              <MorphologyMarkerLegend />
+            ) : null}
+          </Stack>
           <Text c="dimmed" size="xs">
             Wheel, pinch, or double-click to zoom · drag to pan · arrow keys to move
           </Text>
@@ -1410,6 +1540,7 @@ function PredictionZoomModal({
 export function PredictionOverlay({
   imageUrl,
   image,
+  morphology,
   vertebrae,
   cobb,
   status,
@@ -1425,6 +1556,20 @@ export function PredictionOverlay({
     [vertebrae],
   );
   const measurements = useMemo(() => buildCobbMeasurements(cobb), [cobb]);
+  const morphologyMarkerStatuses = useMemo(
+    () =>
+      new Map(
+        analyzeMorphology(morphology, vertebrae)
+          .filter((assessment) =>
+            MARKED_MORPHOLOGY_STATUSES.has(assessment.status),
+          )
+          .map(
+            (assessment) =>
+              [assessment.candidateId, assessment.status] as const,
+          ),
+      ),
+    [morphology, vertebrae],
+  );
   const canOpenZoom =
     status === "success" && imageUrl !== null && image !== null && cobb !== null;
   const zoomOpened = canOpenZoom && zoomImageUrl === imageUrl;
@@ -1441,6 +1586,7 @@ export function PredictionOverlay({
       landmarks: visible,
       cobbLines: visible,
       cobbLabels: visible,
+      morphologyMarkers: visible,
       reliabilityMarkers: visible,
     });
   };
@@ -1502,6 +1648,7 @@ export function PredictionOverlay({
               image={image}
               imageUrl={imageUrl}
               measurements={measurements}
+              morphologyMarkerStatuses={morphologyMarkerStatuses}
               onSelectCandidate={onSelectCandidate}
               orderedVertebrae={orderedVertebrae}
               overlayVisibility={overlayVisibility}
@@ -1518,6 +1665,10 @@ export function PredictionOverlay({
 
         {status === "success" && measurements.length > 0 ? (
           <CobbAngleLegend />
+        ) : null}
+
+        {status === "success" && morphologyMarkerStatuses.size > 0 ? (
+          <MorphologyMarkerLegend />
         ) : null}
 
         {cobb && !cobb.valid ? (
@@ -1537,6 +1688,7 @@ export function PredictionOverlay({
           image={image}
           imageUrl={imageUrl}
           measurements={measurements}
+          morphologyMarkerStatuses={morphologyMarkerStatuses}
           onChangeLayer={setLayerVisibility}
           onClose={() => setZoomImageUrl(null)}
           onSelectCandidate={onSelectCandidate}

@@ -1,0 +1,24 @@
+.workspace {
+  min-width: 0;
+}
+
+.queueSidebar {
+  display: none;
+}
+
+@media (min-width: 100em) {
+  .workspaceWithQueue {
+    align-items: start;
+    display: grid;
+    gap: var(--mantine-spacing-lg);
+    grid-template-columns: 18.5rem minmax(0, 1fr);
+  }
+
+  .queueSidebar {
+    align-self: start;
+    display: block;
+    max-height: calc(100vh - 5.5rem);
+    position: sticky;
+    top: 5rem;
+  }
+}

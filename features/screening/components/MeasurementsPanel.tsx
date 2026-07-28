@@ -15,7 +15,7 @@ import {
 } from "@mantine/core";
 import { useEffect, useRef } from "react";
 import type { MorphologyFeature, VertebraPrediction } from "../api/generated";
-import type { PredictionStatus } from "../hooks/usePrediction";
+import type { PredictionStatus } from "../types";
 import {
   analyzeMorphology,
   type DetectorReliability,
