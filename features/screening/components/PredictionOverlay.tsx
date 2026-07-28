@@ -820,7 +820,14 @@ function PredictionCanvas({
       <desc>
         Configurable vertebral corner points and computational Cobb reference lines on the original image.
       </desc>
-      <image href={imageUrl} x={0} y={0} width={image.width} height={image.height} />
+      <image
+        height={image.height}
+        href={imageUrl}
+        key={imageUrl}
+        width={image.width}
+        x={0}
+        y={0}
+      />
 
       {overlayVisibility.reliabilityMarkers ? (
         <g pointerEvents="none">

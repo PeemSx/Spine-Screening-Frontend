@@ -73,6 +73,35 @@ describe("ScreeningPage bulk workflow", () => {
     configureViewport(false);
   });
 
+  it("switches the review workspace to each newly appended image", async () => {
+    const user = userEvent.setup();
+    const { container } = renderScreeningPage();
+
+    await uploadFiles(container, user, [imageFile("first-upload.png", 1)]);
+    expect(screen.getByText("first-upload.png")).toBeTruthy();
+    const firstImageSource = screen
+      .getByAltText("Original submitted AP or PA radiograph")
+      .getAttribute("src");
+
+    await uploadFiles(container, user, [imageFile("newly-added.png", 2)]);
+    expect(screen.getByText("newly-added.png")).toBeTruthy();
+    expect(screen.queryByText("first-upload.png")).toBeNull();
+    expect(screen.getByText("Image 2 of 2")).toBeTruthy();
+    const secondImageSource = screen
+      .getByAltText("Original submitted AP or PA radiograph")
+      .getAttribute("src");
+    expect(secondImageSource).not.toBe(firstImageSource);
+
+    await uploadFiles(container, user, [imageFile("latest-added.png", 3)]);
+    expect(screen.getByText("latest-added.png")).toBeTruthy();
+    expect(screen.queryByText("newly-added.png")).toBeNull();
+    expect(screen.getByText("Image 3 of 3")).toBeTruthy();
+    const thirdImageSource = screen
+      .getByAltText("Original submitted AP or PA radiograph")
+      .getAttribute("src");
+    expect(thirdImageSource).not.toBe(secondImageSource);
+  });
+
   it("reviews two sequential results through the narrow queue drawer and keeps zoom layers usable", async () => {
     const firstRequest = deferred<PredictionResponse>();
     const secondRequest = deferred<PredictionResponse>();
@@ -105,6 +134,8 @@ describe("ScreeningPage bulk workflow", () => {
     expect(
       screen.queryByRole("heading", { name: "Prediction queue" }),
     ).toBeNull();
+    expect(screen.getByText("second-case.png")).toBeTruthy();
+    expect(screen.queryByText("first-case.png")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Run all" }));
     await waitFor(() => expect(createPredictionMock).toHaveBeenCalledTimes(1));
@@ -167,9 +198,15 @@ describe("ScreeningPage bulk workflow", () => {
     expect(layerButton.getAttribute("aria-expanded")).toBe("true");
     const layerDropdownId = layerButton.getAttribute("aria-controls");
     expect(layerDropdownId).not.toBeNull();
-    const layerDropdown = document.getElementById(layerDropdownId as string);
-    expect(layerDropdown).not.toBeNull();
-    const reliabilityToggle = within(layerDropdown as HTMLElement).getByRole(
+    const layerDropdown = await waitFor(() => {
+      const dropdown = document.getElementById(layerDropdownId as string);
+      expect(dropdown).not.toBeNull();
+      if (!dropdown) {
+        throw new Error("Layer controls did not open");
+      }
+      return dropdown;
+    });
+    const reliabilityToggle = within(layerDropdown).getByRole(
       "checkbox",
       {
         hidden: true,

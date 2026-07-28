@@ -61,7 +61,7 @@ describe("usePredictionQueue", () => {
       "batch_limit",
     ]);
     expect(result.current.items).toHaveLength(20);
-    expect(result.current.selectedItemId).toBe(result.current.items[0].id);
+    expect(result.current.selectedItemId).toBe(result.current.items[19].id);
     expect(URL.createObjectURL).toHaveBeenCalledTimes(20);
   });
 

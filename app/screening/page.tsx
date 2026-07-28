@@ -91,6 +91,7 @@ function OriginalImagePanel({
         >
           <Image
             alt="Original submitted AP or PA radiograph"
+            key={imageUrl}
             src={imageUrl}
             style={{
               display: "block",

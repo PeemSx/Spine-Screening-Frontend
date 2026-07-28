@@ -10,7 +10,7 @@ import {
 } from "@/tests/predictionFixture";
 
 describe("predictionQueueReducer", () => {
-  it("selects only the first added case and never auto-switches on completion", () => {
+  it("selects the newest added case and never auto-switches on completion", () => {
     const first = queueItem("first");
     const second = queueItem("second");
     let state = predictionQueueReducer(initialPredictionQueueState, {
@@ -18,7 +18,7 @@ describe("predictionQueueReducer", () => {
       items: [first, second],
     });
 
-    expect(state.selectedItemId).toBe(first.id);
+    expect(state.selectedItemId).toBe(second.id);
 
     state = predictionQueueReducer(state, {
       type: "start_processing",
@@ -33,7 +33,7 @@ describe("predictionQueueReducer", () => {
       result: predictionFixture("prediction-first", 11),
     });
 
-    expect(state.selectedItemId).toBe(first.id);
+    expect(state.selectedItemId).toBe(second.id);
     expect(state.items[0].selectedCandidateId).toBe(11);
 
     state = predictionQueueReducer(state, {
@@ -46,7 +46,15 @@ describe("predictionQueueReducer", () => {
       result: predictionFixture("prediction-second", 22),
     });
 
-    expect(state.selectedItemId).toBe(first.id);
+    expect(state.selectedItemId).toBe(second.id);
+
+    const third = queueItem("third");
+    state = predictionQueueReducer(state, {
+      type: "add",
+      items: [third],
+    });
+
+    expect(state.selectedItemId).toBe(third.id);
   });
 
   it("retains a separate selected vertebra candidate for each case", () => {

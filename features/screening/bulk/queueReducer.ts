@@ -71,8 +71,9 @@ export function predictionQueueReducer(
       return {
         ...state,
         items: [...state.items, ...action.items],
-        // Select only when the queue did not already have a selected case.
-        selectedItemId: state.selectedItemId ?? action.items[0].id,
+        // An add is an explicit review action, so open the newest accepted case.
+        // Prediction completion still never changes the selected case.
+        selectedItemId: action.items[action.items.length - 1].id,
       };
     }
 

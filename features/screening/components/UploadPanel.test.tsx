@@ -1,5 +1,5 @@
 import { MantineProvider } from "@mantine/core";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
@@ -104,6 +104,14 @@ describe("UploadPanel", () => {
     expect(screen.getByRole("button", { name: "Run all" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Clear batch" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Queue/ })).toBeNull();
+    const appendDropzone = screen.getByLabelText(
+      "Drop images to add them to the prediction queue",
+    );
+    expect(appendDropzone).toBeTruthy();
+    expect(screen.getByText(/drop more AP or PA radiographs here/i)).toBeTruthy();
+    expect(
+      appendDropzone.contains(screen.getByRole("button", { name: "Run all" })),
+    ).toBe(false);
     expect(
       (screen.getByRole("button", {
         name: "Previous image",
@@ -119,5 +127,38 @@ describe("UploadPanel", () => {
     expect(onRun).toHaveBeenCalledTimes(1);
     expect(onPrevious).not.toHaveBeenCalled();
     expect(onNext).not.toHaveBeenCalled();
+  });
+
+  it("adds dropped files from the compact queue toolbar", async () => {
+    const droppedFile = imageFile("dropped-after-first.png", 2);
+    const onAddFiles = vi.fn<
+      ComponentProps<typeof UploadPanel>["onAddFiles"]
+    >(() => ({ added: [], rejected: [] }));
+    const props = uploadPanelProps({
+      itemCount: 1,
+      queuedCount: 1,
+      onAddFiles,
+    });
+    renderUploadPanel(props);
+
+    fireEvent.drop(
+      screen.getByLabelText("Drop images to add them to the prediction queue"),
+      {
+        dataTransfer: {
+          files: [droppedFile],
+          items: [
+            {
+              getAsFile: () => droppedFile,
+              kind: "file",
+              type: droppedFile.type,
+            },
+          ],
+          types: ["Files"],
+        },
+      },
+    );
+
+    await waitFor(() => expect(onAddFiles).toHaveBeenCalledTimes(1));
+    expect(onAddFiles).toHaveBeenCalledWith([droppedFile]);
   });
 });

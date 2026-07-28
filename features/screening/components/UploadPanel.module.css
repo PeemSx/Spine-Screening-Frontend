@@ -1,0 +1,31 @@
+.appendDropzone {
+  background: color-mix(
+    in srgb,
+    var(--mantine-color-blue-light) 35%,
+    transparent
+  ) !important;
+  border: 1px dashed var(--mantine-color-default-border) !important;
+  border-radius: var(--mantine-radius-sm);
+  padding: var(--mantine-spacing-md) !important;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.appendDropzone[data-accept] {
+  background: color-mix(
+    in srgb,
+    var(--mantine-color-blue-filled) 10%,
+    transparent
+  ) !important;
+  border-color: var(--mantine-color-blue-filled) !important;
+}
+
+.appendDropzone[data-reject] {
+  background: color-mix(
+    in srgb,
+    var(--mantine-color-red-filled) 10%,
+    transparent
+  ) !important;
+  border-color: var(--mantine-color-red-filled) !important;
+}

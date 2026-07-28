@@ -41,6 +41,7 @@ import type {
   AddFilesResult,
   PredictionFileRejection,
 } from "../bulk/types";
+import styles from "./UploadPanel.module.css";
 
 interface UploadPanelProps {
   activeFileName: string | null;
@@ -72,6 +73,11 @@ function plural(count: number, singular: string, pluralLabel = `${singular}s`) {
 interface RejectionNotice {
   fileName: string;
   reason: string;
+}
+
+interface DropzoneRejection {
+  file: File;
+  errors: readonly { message: string }[];
 }
 
 function rejectionNotice(
@@ -121,6 +127,24 @@ export function UploadPanel({
     setRejectionNotices(result.rejected.map(rejectionNotice));
   };
 
+  const addDroppedFiles = (
+    files: readonly File[],
+    rejections: readonly DropzoneRejection[],
+  ) => {
+    const result = onAddFiles(files);
+    setRejectionNotices([
+      ...result.rejected.map(rejectionNotice),
+      ...rejections.map((rejection) => ({
+        fileName: rejection.file.name,
+        reason:
+          rejection.errors
+            .map((error) => error.message)
+            .filter(Boolean)
+            .join(" ") || "Use a JPEG or PNG image no larger than 20 MB.",
+      })),
+    ]);
+  };
+
   const handleExampleSelect = ({ file }: ExampleSelection) => {
     addFiles([file]);
   };
@@ -149,23 +173,7 @@ export function UploadPanel({
               maxSize={SCREENING_MAX_UPLOAD_BYTES}
               multiple
               onDrop={() => undefined}
-              onDropAny={(files, rejections) => {
-                const result = onAddFiles(files);
-                setRejectionNotices(
-                  [
-                    ...result.rejected.map(rejectionNotice),
-                    ...rejections.map((rejection) => ({
-                      fileName: rejection.file.name,
-                      reason:
-                        rejection.errors
-                          .map((error) => error.message)
-                          .filter(Boolean)
-                          .join(" ") ||
-                        "Use a JPEG or PNG image no larger than 20 MB.",
-                    })),
-                  ],
-                );
-              }}
+              onDropAny={addDroppedFiles}
             >
               <Group justify="center" mih={116}>
                 <Stack gap={6} align="center">
@@ -191,7 +199,29 @@ export function UploadPanel({
             </Group>
           </Stack>
         ) : (
-          <Stack gap="md">
+          <>
+            <Dropzone
+              accept={SCREENING_IMAGE_MIME_TYPES}
+              activateOnClick={false}
+              aria-label="Drop images to add them to the prediction queue"
+              className={styles.appendDropzone}
+              maxSize={SCREENING_MAX_UPLOAD_BYTES}
+              multiple
+              onDrop={() => undefined}
+              onDropAny={addDroppedFiles}
+            >
+          <Group justify="center" mih={116}>
+            <Stack align="center" gap={6}>
+              <IconUpload aria-hidden="true" size={28} stroke={1.6} />
+              <Title order={4}>Drop more AP or PA radiographs here</Title>
+              <Text c="dimmed" size="sm" ta="center">
+                Add JPEG or PNG images · 20 MB per image
+              </Text>
+            </Stack>
+          </Group>
+            </Dropzone>
+
+            <Stack gap="md" mt="md">
             <Group align="center" justify="space-between" gap="md">
               <Stack aria-live="polite" gap={2}>
                 <Text fw={700}>
@@ -342,7 +372,8 @@ export function UploadPanel({
                 </Tooltip>
               </Group>
             </Group>
-          </Stack>
+            </Stack>
+          </>
         )}
 
         {rejectionNotices.length > 0 ? (

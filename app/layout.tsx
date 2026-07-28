@@ -17,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en" {...mantineHtmlProps}>
       <head>
+        <meta name="darkreader-lock" />
         <ColorSchemeScript />
       </head>
       <body>
