@@ -280,7 +280,7 @@ export default function ScreeningPage() {
               icon={<IconAlertCircle size={18} />}
               mb="lg"
               role="alert"
-              title={`Screening failed for ${selectedItem.file.name}`}
+              title={`Screening failed for ${selectedItem.file.name}. Contact "Peem" to resolve the issue.`}
             >
               {selectedError.message}
               {selectedError.requestId
