@@ -1,4 +1,4 @@
-import type { FastApiValidationError, ProblemDetail } from "./generated";
+import type { FastApiValidationError, ProblemDetail } from "./contract";
 
 export class ScreeningApiError extends Error {
   readonly status: number;

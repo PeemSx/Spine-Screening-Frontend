@@ -3,7 +3,7 @@ import type {
   PredictionQueueState,
 } from "./types";
 import type { ScreeningApiError } from "../api/errors";
-import type { PredictionResponse } from "../api/generated";
+import type { PredictionResponse } from "../api/contract";
 
 export const initialPredictionQueueState: PredictionQueueState = {
   items: [],

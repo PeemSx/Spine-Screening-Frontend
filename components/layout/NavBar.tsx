@@ -24,7 +24,8 @@ type NavLink = {
 };
 
 const navLinks: NavLink[] = [
-  { label: 'Screening', href: '/screening', isPrimary: true },
+  { label: 'Frontal', href: '/frontal', isPrimary: true },
+  { label: 'Lateral', href: '/lateral', isPrimary: true },
   { label: 'Contact', href: '/contact' },
 ];
 
@@ -107,6 +108,19 @@ export default function NavBar() {
     );
   });
 
+  const primaryDesktopLinks = desktopLinks.filter(
+    (_, index) => navLinks[index].isPrimary,
+  );
+  const secondaryDesktopLinks = desktopLinks.filter(
+    (_, index) => !navLinks[index].isPrimary,
+  );
+  const primaryMobileLinks = mobileLinks.filter(
+    (_, index) => navLinks[index].isPrimary,
+  );
+  const secondaryMobileLinks = mobileLinks.filter(
+    (_, index) => !navLinks[index].isPrimary,
+  );
+
   return (
     <Box
       component="header"
@@ -129,9 +143,9 @@ export default function NavBar() {
 
           {/* Desktop Navigation */}
           <Group gap="xl" grow={false} className={classes.desktopNav}>
-            <Group gap="md">{desktopLinks.slice(0, 1)}</Group>
+            <Group gap="md">{primaryDesktopLinks}</Group>
             <Divider orientation="vertical" />
-            <Group gap="md">{desktopLinks.slice(1)}</Group>
+            <Group gap="md">{secondaryDesktopLinks}</Group>
             <ThemeToggle />
           </Group>
 
@@ -158,7 +172,7 @@ export default function NavBar() {
             Demo
           </Text>
           <Group gap="sm" grow>
-            {mobileLinks.slice(0, 1)}
+            {primaryMobileLinks}
           </Group>
 
           <Divider my="sm" />
@@ -166,7 +180,7 @@ export default function NavBar() {
           <Text fw={600} size="xs" c="gray.6" tt="uppercase">
             More
           </Text>
-          <Stack gap="sm">{mobileLinks.slice(1)}</Stack>
+          <Stack gap="sm">{secondaryMobileLinks}</Stack>
         </Stack>
       </Drawer>
     </Box>

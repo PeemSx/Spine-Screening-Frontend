@@ -42,7 +42,7 @@ import type {
   MorphologyFeature,
   Point,
   VertebraPrediction,
-} from "../api/generated";
+} from "../api/contract";
 import type { PredictionStatus } from "../types";
 import {
   analyzeMorphology,

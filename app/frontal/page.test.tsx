@@ -10,12 +10,12 @@ import {
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPrediction } from "@/features/screening/api/client";
-import type { PredictionResponse } from "@/features/screening/api/generated";
+import type { PredictionResponse } from "@/features/screening/api/contract";
 import {
   imageFile,
   predictionFixture,
 } from "@/tests/predictionFixture";
-import ScreeningPage from "./page";
+import FrontalPage from "./page";
 
 vi.mock("@/features/screening/api/client", () => ({
   createPrediction: vi.fn(),
@@ -49,10 +49,10 @@ function configureViewport(wide: boolean) {
   }));
 }
 
-function renderScreeningPage() {
+function renderFrontalPage() {
   return render(
     <MantineProvider>
-      <ScreeningPage />
+      <FrontalPage />
     </MantineProvider>,
   );
 }
@@ -67,7 +67,7 @@ async function uploadFiles(
   await user.upload(fileInput as HTMLInputElement, files);
 }
 
-describe("ScreeningPage bulk workflow", () => {
+describe("FrontalPage bulk workflow", () => {
   beforeEach(() => {
     createPredictionMock.mockReset();
     configureViewport(false);
@@ -75,7 +75,7 @@ describe("ScreeningPage bulk workflow", () => {
 
   it("switches the review workspace to each newly appended image", async () => {
     const user = userEvent.setup();
-    const { container } = renderScreeningPage();
+    const { container } = renderFrontalPage();
 
     await uploadFiles(container, user, [imageFile("first-upload.png", 1)]);
     expect(screen.getByText("first-upload.png")).toBeTruthy();
@@ -125,7 +125,7 @@ describe("ScreeningPage bulk workflow", () => {
     const firstFile = imageFile("first-case.png", 1);
     const secondFile = imageFile("second-case.png", 2);
     const user = userEvent.setup();
-    const { container } = renderScreeningPage();
+    const { container } = renderFrontalPage();
 
     await uploadFiles(container, user, [firstFile, secondFile]);
     expect(
@@ -227,7 +227,7 @@ describe("ScreeningPage bulk workflow", () => {
   it("uses the persistent queue at 1600px and does not render the drawer trigger", async () => {
     configureViewport(true);
     const user = userEvent.setup();
-    const { container } = renderScreeningPage();
+    const { container } = renderFrontalPage();
 
     await uploadFiles(container, user, [
       imageFile("wide-first.png", 1),

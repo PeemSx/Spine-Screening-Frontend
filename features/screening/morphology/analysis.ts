@@ -2,7 +2,7 @@ import type {
   MorphologyFeature,
   Point,
   VertebraPrediction,
-} from "../api/generated";
+} from "../api/contract";
 import { MORPHOLOGY_FLAGGING_CONFIG as config } from "./config";
 
 export type DetectorReliability =

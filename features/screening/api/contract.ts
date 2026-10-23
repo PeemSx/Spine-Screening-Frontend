@@ -1,33 +1,23 @@
 /**
- * TypeScript representation of Spine-Screening-API `/api/v1` contracts.
- * Keep this file aligned with the backend OpenAPI document.
+ * UI contract and runtime guards layered over the generated OpenAPI schema.
+ * Keep response guards strict; never edit schema.generated.ts by hand.
  */
 
-export interface Point {
-  x: number;
-  y: number;
-}
+import type { components } from "./schema.generated";
 
-export interface OrderedCorners {
-  top_left: Point;
-  top_right: Point;
-  bottom_left: Point;
-  bottom_right: Point;
-}
+type ApiSchemas = components["schemas"];
 
-export interface VertebraPrediction {
-  candidate_id: number;
-  rank: number;
-  detector_score: number;
-  center: Point;
-  corners: OrderedCorners;
-}
+export type Point = ApiSchemas["Point"];
 
-export interface CobbLine {
-  start: Point;
-  end: Point;
-  vertebra_candidate_id: number;
-}
+export type OrderedCorners = ApiSchemas["OrderedCorners"];
+
+export type VertebraPrediction = ApiSchemas["VertebraPrediction"];
+
+export type SixKeypoints = ApiSchemas["SixKeypoints"];
+
+export type LAVertebraPrediction = ApiSchemas["LAVertebraPrediction"];
+
+export type CobbLine = ApiSchemas["CobbLine"];
 
 export interface CobbResult {
   valid: boolean;
@@ -40,61 +30,15 @@ export interface CobbResult {
   cobb_3_lines: CobbLine[];
 }
 
-export interface MorphologyFeature {
-  rank: number;
-  candidate_id: number;
-  detector_score: number;
-  superior_width_px: number;
-  inferior_width_px: number;
-  left_height_px: number;
-  right_height_px: number;
-  mean_height_px: number;
-  left_right_height_ratio: number;
-  height_asymmetry_fraction: number;
-  width_height_ratio: number;
-  superior_endplate_angle_deg: number;
-  inferior_endplate_angle_deg: number;
-  endplate_nonparallel_deg: number;
-  neighbor_reference_height_px: number | null;
-  height_ratio_to_neighbors: number | null;
-  relative_height_deviation: number | null;
-  previous_center_spacing_px: number | null;
-  next_center_spacing_px: number | null;
-}
+export type MorphologyFeature = ApiSchemas["MorphologyFeature"];
 
-export interface ImageInfo {
-  width: number;
-  height: number;
-  media_type: string;
-}
+export type ImageInfo = ApiSchemas["ImageInfo"];
 
-export interface PredictionCounts {
-  raw: number;
-  deduplicated: number;
-  selected: number;
-}
+export type PredictionCounts = ApiSchemas["PredictionCounts"];
 
-export interface SpineChainInfo {
-  duplicate_iou_threshold: number;
-  duplicate_center_scale: number;
-  score_threshold: number;
-  score_weight: number;
-  min_chain_len: number;
-}
+export type SpineChainInfo = ApiSchemas["SpineChainInfo"];
 
-export interface ModelInfoResponse {
-  model_id: string;
-  artifact_type: string;
-  format_version: number;
-  backbone: string;
-  input_size: number;
-  down_ratio: number;
-  peak_threshold: number;
-  topk: number;
-  sha256: string;
-  corner_order: [string, string, string, string];
-  spine_chain: SpineChainInfo;
-}
+export type ModelInfoResponse = ApiSchemas["ModelInfoResponse"];
 
 export interface PredictionResponse {
   prediction_id: string;
@@ -113,15 +57,51 @@ export interface PredictionResponse {
   disclaimer: string;
 }
 
-export interface ProblemDetail {
-  type: string;
-  title: string;
-  status: number;
-  detail: string;
-  code: string;
-  instance: string;
-  request_id?: string | null;
+export const LA_KEYPOINT_ORDER = [
+  "top_left",
+  "top_middle",
+  "top_right",
+  "bottom_left",
+  "bottom_middle",
+  "bottom_right",
+] as const;
+
+export const LA_MEASUREMENT_LANDMARKS = [
+  "top_left",
+  "top_right",
+  "bottom_left",
+  "bottom_right",
+] as const;
+
+export const LA_COBB_SCOPE =
+  "LA geometry agreement calculated from the four outer landmarks; not a clinical AP/PA Cobb measurement." as const;
+
+export type LAModelInfoResponse = ApiSchemas["LAModelInfoResponse"];
+
+export interface LACobbResult extends CobbResult {
+  scope: typeof LA_COBB_SCOPE;
 }
+
+export interface LAPredictionResponse {
+  prediction_id: string;
+  model: LAModelInfoResponse;
+  image: ImageInfo;
+  projection: "LA";
+  coordinate_space: "original_image_pixels";
+  coordinate_origin: "top_left";
+  keypoint_order: typeof LA_KEYPOINT_ORDER;
+  measurement_landmarks: typeof LA_MEASUREMENT_LANDMARKS;
+  counts: PredictionCounts;
+  raw_predictions: LAVertebraPrediction[];
+  selected_vertebrae: LAVertebraPrediction[];
+  cobb: LACobbResult;
+  morphology: MorphologyFeature[];
+  warnings: string[];
+  clinical_review_required: true;
+  disclaimer: string;
+}
+
+export type ProblemDetail = ApiSchemas["ProblemDetail"];
 
 export interface ApiValidationIssue {
   type?: string;
@@ -178,6 +158,31 @@ function isVertebraPrediction(value: unknown): value is VertebraPrediction {
   );
 }
 
+function isSixKeypoints(value: unknown): value is SixKeypoints {
+  return (
+    isRecord(value) &&
+    isPoint(value.top_left) &&
+    isPoint(value.top_middle) &&
+    isPoint(value.top_right) &&
+    isPoint(value.bottom_left) &&
+    isPoint(value.bottom_middle) &&
+    isPoint(value.bottom_right)
+  );
+}
+
+function isLAVertebraPrediction(
+  value: unknown,
+): value is LAVertebraPrediction {
+  return (
+    isRecord(value) &&
+    isInteger(value.candidate_id) &&
+    isInteger(value.rank) &&
+    isFiniteNumber(value.detector_score) &&
+    isPoint(value.center) &&
+    isSixKeypoints(value.keypoints)
+  );
+}
+
 function isCobbLine(value: unknown): value is CobbLine {
   return (
     isRecord(value) &&
@@ -201,6 +206,14 @@ function isCobbResult(value: unknown): value is CobbResult {
     value.cobb_2_lines.every(isCobbLine) &&
     Array.isArray(value.cobb_3_lines) &&
     value.cobb_3_lines.every(isCobbLine)
+  );
+}
+
+function isLACobbResult(value: unknown): value is LACobbResult {
+  return (
+    isRecord(value) &&
+    value.scope === LA_COBB_SCOPE &&
+    isCobbResult(value)
   );
 }
 
@@ -255,6 +268,25 @@ function isModelInfo(value: unknown): value is ModelInfoResponse {
   );
 }
 
+function isLAModelInfo(value: unknown): value is LAModelInfoResponse {
+  return (
+    isRecord(value) &&
+    typeof value.model_id === "string" &&
+    typeof value.artifact_type === "string" &&
+    isInteger(value.format_version) &&
+    typeof value.backbone === "string" &&
+    isInteger(value.input_size) &&
+    isInteger(value.down_ratio) &&
+    isFiniteNumber(value.peak_threshold) &&
+    isInteger(value.topk) &&
+    typeof value.sha256 === "string" &&
+    isInteger(value.checkpoint_epoch) &&
+    Array.isArray(value.keypoint_order) &&
+    value.keypoint_order.join(",") === LA_KEYPOINT_ORDER.join(",") &&
+    isRecord(value.spine_chain)
+  );
+}
+
 /** Runtime guard for the fields required by the screening UI. */
 export function isPredictionResponse(value: unknown): value is PredictionResponse {
   if (!isRecord(value)) return false;
@@ -283,6 +315,48 @@ export function isPredictionResponse(value: unknown): value is PredictionRespons
     Array.isArray(value.selected_vertebrae) &&
     value.selected_vertebrae.every(isVertebraPrediction) &&
     isCobbResult(value.cobb) &&
+    Array.isArray(value.morphology) &&
+    value.morphology.every(isMorphologyFeature) &&
+    Array.isArray(value.warnings) &&
+    value.warnings.every((warning) => typeof warning === "string") &&
+    value.clinical_review_required === true &&
+    typeof value.disclaimer === "string"
+  );
+}
+
+/** Runtime guard for the projection-specific fields required by the LA UI. */
+export function isLAPredictionResponse(
+  value: unknown,
+): value is LAPredictionResponse {
+  if (!isRecord(value)) return false;
+
+  const image = value.image;
+  const counts = value.counts;
+
+  return (
+    typeof value.prediction_id === "string" &&
+    isLAModelInfo(value.model) &&
+    isRecord(image) &&
+    isInteger(image.width) &&
+    isInteger(image.height) &&
+    typeof image.media_type === "string" &&
+    value.projection === "LA" &&
+    value.coordinate_space === "original_image_pixels" &&
+    value.coordinate_origin === "top_left" &&
+    Array.isArray(value.keypoint_order) &&
+    value.keypoint_order.join(",") === LA_KEYPOINT_ORDER.join(",") &&
+    Array.isArray(value.measurement_landmarks) &&
+    value.measurement_landmarks.join(",") ===
+      LA_MEASUREMENT_LANDMARKS.join(",") &&
+    isRecord(counts) &&
+    isInteger(counts.raw) &&
+    isInteger(counts.deduplicated) &&
+    isInteger(counts.selected) &&
+    Array.isArray(value.raw_predictions) &&
+    value.raw_predictions.every(isLAVertebraPrediction) &&
+    Array.isArray(value.selected_vertebrae) &&
+    value.selected_vertebrae.every(isLAVertebraPrediction) &&
+    isLACobbResult(value.cobb) &&
     Array.isArray(value.morphology) &&
     value.morphology.every(isMorphologyFeature) &&
     Array.isArray(value.warnings) &&

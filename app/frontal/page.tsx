@@ -24,7 +24,7 @@ import {
 } from "@/features/screening/components/PredictionQueue";
 import { UploadPanel } from "@/features/screening/components/UploadPanel";
 import { usePredictionQueue } from "@/features/screening/hooks/usePredictionQueue";
-import type { ImageInfo } from "@/features/screening/api/generated";
+import type { ImageInfo } from "@/features/screening/api/contract";
 import type { PredictionQueueStatus } from "@/features/screening/bulk/types";
 import type { PredictionStatus } from "@/features/screening/types";
 import styles from "./ScreeningWorkspace.module.css";
@@ -119,7 +119,7 @@ function OriginalImagePanel({
   );
 }
 
-export default function ScreeningPage() {
+export default function FrontalPage() {
   const queue = usePredictionQueue();
   const [queueDrawerOpen, setQueueDrawerOpen] = useState(false);
   const isWideQueueLayout = useMediaQuery("(min-width: 100em)", false);
@@ -227,7 +227,7 @@ export default function ScreeningPage() {
 
       <Stack align="center" gap="xs" mb="xl">
         <Title order={1} size="h2" ta="center">
-          Spine screening workspace
+          Frontal spine assessment
         </Title>
         <Text c="dimmed" maw={760} ta="center">
           Upload one or more AP or PA radiographs to review vertebral landmarks,

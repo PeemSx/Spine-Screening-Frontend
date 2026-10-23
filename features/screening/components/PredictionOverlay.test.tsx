@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   MorphologyFeature,
   VertebraPrediction,
-} from "../api/generated";
+} from "../api/contract";
 import { PredictionOverlay } from "./PredictionOverlay";
 
 function vertebra(

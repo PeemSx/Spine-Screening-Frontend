@@ -14,7 +14,7 @@ import {
   UnstyledButton,
 } from "@mantine/core";
 import { useEffect, useRef } from "react";
-import type { MorphologyFeature, VertebraPrediction } from "../api/generated";
+import type { MorphologyFeature, VertebraPrediction } from "../api/contract";
 import type { PredictionStatus } from "../types";
 import {
   analyzeMorphology,

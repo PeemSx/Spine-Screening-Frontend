@@ -6,7 +6,7 @@ import { ScreeningApiError } from "../api/errors";
 import type {
   MorphologyFeature,
   PredictionResponse,
-} from "../api/generated";
+} from "../api/contract";
 import { queueItem } from "@/tests/predictionFixture";
 import { predictionFixture } from "@/tests/predictionFixture";
 import { PredictionQueue } from "./PredictionQueue";

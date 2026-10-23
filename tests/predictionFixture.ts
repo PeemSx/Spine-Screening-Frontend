@@ -1,7 +1,7 @@
 import type {
   PredictionResponse,
   VertebraPrediction,
-} from "@/features/screening/api/generated";
+} from "@/features/screening/api/contract";
 import type { PredictionQueueItem } from "@/features/screening/bulk/types";
 
 function vertebra(candidateId: number): VertebraPrediction {

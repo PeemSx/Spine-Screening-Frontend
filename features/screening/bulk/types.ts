@@ -1,5 +1,5 @@
 import type { ScreeningApiError } from "../api/errors";
-import type { PredictionResponse } from "../api/generated";
+import type { PredictionResponse } from "../api/contract";
 
 export const MAX_PREDICTION_QUEUE_ITEMS = 20;
 
@@ -61,4 +61,3 @@ export interface PredictionQueueProgress {
 export function fingerprintPredictionFile(file: File) {
   return `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
 }
-
