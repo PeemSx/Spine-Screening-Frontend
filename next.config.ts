@@ -11,6 +11,7 @@ const configuredApiBaseUrl = (process.env.SPINE_API_BASE_URL ?? "http://127.0.0.
 const nextConfig: NextConfig = {
   // Workspace automation owns the generated repository instructions.
   agentRules: false,
+  output: "standalone",
   turbopack: {
     root: projectRoot,
   },
