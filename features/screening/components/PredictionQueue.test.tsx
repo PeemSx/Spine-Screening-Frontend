@@ -4,11 +4,17 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ScreeningApiError } from "../api/errors";
 import type {
+  LAPredictionResponse,
   MorphologyFeature,
   PredictionResponse,
 } from "../api/contract";
-import { queueItem } from "@/tests/predictionFixture";
-import { predictionFixture } from "@/tests/predictionFixture";
+import type { PredictionQueueItem } from "../bulk/types";
+import { laPredictionFixture } from "@/tests/laPredictionFixture";
+import {
+  imageFile,
+  predictionFixture,
+  queueItem,
+} from "@/tests/predictionFixture";
 import { PredictionQueue } from "./PredictionQueue";
 
 function morphologyFeature({
@@ -184,5 +190,55 @@ describe("PredictionQueue", () => {
 
     await chooseFilter("Failed");
     expectOnlyVisibleCase("failed.png");
+  });
+
+  it("keeps the lateral queue focused on processing warnings and failures", async () => {
+    const lateralResult: LAPredictionResponse = {
+      ...laPredictionFixture(),
+      warnings: ["Review lateral image quality."],
+    };
+    const lateralItem: PredictionQueueItem<LAPredictionResponse> = {
+      error: null,
+      file: imageFile("lateral-warning.png", 3),
+      fingerprint: "lateral-warning",
+      id: "lateral-warning",
+      result: lateralResult,
+      selectedCandidateId: null,
+      status: "success",
+    };
+    render(
+      <MantineProvider>
+        <PredictionQueue
+          items={[lateralItem]}
+          onSelectItem={vi.fn()}
+          projection="lateral"
+          selectedItemId={lateralItem.id}
+        />
+      </MantineProvider>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Lateral prediction queue" }),
+    ).toBeTruthy();
+    const filter = screen.getByRole("textbox", {
+      name: "Filter prediction queue",
+    });
+    fireEvent.mouseDown(filter);
+    expect(
+      screen.getByRole("option", { hidden: true, name: "Warnings" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("option", {
+        hidden: true,
+        name: "Morphology signals",
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("option", {
+        hidden: true,
+        name: "Low reliability",
+      }),
+    ).toBeNull();
+    expect(screen.getByText("1 warning")).toBeTruthy();
   });
 });

@@ -40,6 +40,7 @@ import type { ExampleSelection } from "@/types/examples";
 import type {
   AddFilesResult,
   PredictionFileRejection,
+  PredictionQueueResult,
 } from "../bulk/types";
 import styles from "./UploadPanel.module.css";
 
@@ -47,7 +48,7 @@ interface UploadPanelProps {
   activeFileName: string | null;
   failedCount: number;
   hasCompletedResults: boolean;
-  hasSignalItems: boolean;
+  hasSignalItems?: boolean;
   isProcessing: boolean;
   itemCount: number;
   processedCount: number;
@@ -55,15 +56,18 @@ interface UploadPanelProps {
   queuedCount: number;
   selectedIndex: number;
   showQueueButton: boolean;
-  onAddFiles: (files: readonly File[]) => AddFilesResult;
+  onAddFiles: (
+    files: readonly File[],
+  ) => AddFilesResult<PredictionQueueResult>;
   onClear: () => void;
   onNext: () => void;
-  onNextSignal: () => void;
+  onNextSignal?: () => void;
   onOpenQueue: () => void;
   onPrevious: () => void;
   onRetryFailed: () => void;
   onRun: () => void;
   onStop: () => void;
+  projection?: "frontal" | "lateral";
 }
 
 function plural(count: number, singular: string, pluralLabel = `${singular}s`) {
@@ -116,11 +120,14 @@ export function UploadPanel({
   onRetryFailed,
   onRun,
   onStop,
+  projection = "frontal",
 }: UploadPanelProps) {
   const [rejectionNotices, setRejectionNotices] = useState<RejectionNotice[]>(
     [],
   );
   const [clearConfirmationOpen, setClearConfirmationOpen] = useState(false);
+  const isFrontal = projection === "frontal";
+  const projectionLabel = isFrontal ? "AP or PA" : "lateral";
 
   const addFiles = (files: readonly File[]) => {
     const result = onAddFiles(files);
@@ -178,7 +185,9 @@ export function UploadPanel({
               <Group justify="center" mih={116}>
                 <Stack gap={6} align="center">
                   <IconUpload size={28} stroke={1.6} />
-                  <Title order={4}>Drop AP or PA radiographs here</Title>
+                  <Title order={4}>
+                    Drop {projectionLabel} radiographs here
+                  </Title>
                   <Text c="dimmed" size="sm" ta="center">
                     Select up to 20 JPEG or PNG images · 20 MB per image
                   </Text>
@@ -190,12 +199,14 @@ export function UploadPanel({
               <Text c="dimmed" size="sm">
                 Results remain in this browser session only.
               </Text>
-              <ExampleSelector
-                examples={SCREENING_EXAMPLE_OPTIONS}
-                onSelect={handleExampleSelect}
-                buttonLabel="Choose example"
-                description="Adds a bundled AP or PA demo radiograph"
-              />
+              {isFrontal ? (
+                <ExampleSelector
+                  examples={SCREENING_EXAMPLE_OPTIONS}
+                  onSelect={handleExampleSelect}
+                  buttonLabel="Choose example"
+                  description="Adds a bundled AP or PA demo radiograph"
+                />
+              ) : null}
             </Group>
           </Stack>
         ) : (
@@ -210,168 +221,174 @@ export function UploadPanel({
               onDrop={() => undefined}
               onDropAny={addDroppedFiles}
             >
-          <Group justify="center" mih={116}>
-            <Stack align="center" gap={6}>
-              <IconUpload aria-hidden="true" size={28} stroke={1.6} />
-              <Title order={4}>Drop more AP or PA radiographs here</Title>
-              <Text c="dimmed" size="sm" ta="center">
-                Add JPEG or PNG images · 20 MB per image
-              </Text>
-            </Stack>
-          </Group>
+              <Group justify="center" mih={116}>
+                <Stack align="center" gap={6}>
+                  <IconUpload aria-hidden="true" size={28} stroke={1.6} />
+                  <Title order={4}>
+                    Drop more {projectionLabel} radiographs here
+                  </Title>
+                  <Text c="dimmed" size="sm" ta="center">
+                    Add JPEG or PNG images · 20 MB per image
+                  </Text>
+                </Stack>
+              </Group>
             </Dropzone>
 
             <Stack gap="md" mt="md">
-            <Group align="center" justify="space-between" gap="md">
-              <Stack aria-live="polite" gap={2}>
-                <Text fw={700}>
-                  {processedCount} of {itemCount} processed
-                </Text>
-                <Text c="dimmed" lineClamp={1} size="sm">
-                  {isProcessing
-                    ? `Running ${activeFileName ?? "the next image"}`
-                    : queuedCount > 0
-                      ? `${plural(queuedCount, "image")} ready to run`
-                      : failedCount > 0
-                        ? `${plural(failedCount, "image")} failed`
-                        : "All queued images have been processed"}
-                </Text>
-              </Stack>
+              <Group align="center" gap="md" justify="space-between">
+                <Stack aria-live="polite" gap={2}>
+                  <Text fw={700}>
+                    {processedCount} of {itemCount} processed
+                  </Text>
+                  <Text c="dimmed" lineClamp={1} size="sm">
+                    {isProcessing
+                      ? `Running ${activeFileName ?? "the next image"}`
+                      : queuedCount > 0
+                        ? `${plural(queuedCount, "image")} ready to run`
+                        : failedCount > 0
+                          ? `${plural(failedCount, "image")} failed`
+                          : "All queued images have been processed"}
+                  </Text>
+                </Stack>
 
-              <Group gap="xs" wrap="wrap">
-                <FileButton
-                  accept={SCREENING_IMAGE_MIME_TYPES.join(",")}
-                  multiple
-                  onChange={addFiles}
-                >
-                  {(props) => (
+                <Group gap="xs" wrap="wrap">
+                  <FileButton
+                    accept={SCREENING_IMAGE_MIME_TYPES.join(",")}
+                    multiple
+                    onChange={addFiles}
+                  >
+                    {(props) => (
+                      <Button
+                        {...props}
+                        leftSection={<IconUpload size={16} />}
+                        size="xs"
+                        variant="default"
+                      >
+                        Add images
+                      </Button>
+                    )}
+                  </FileButton>
+
+                  {isFrontal ? (
+                    <ExampleSelector
+                      buttonLabel="Add example"
+                      description="Adds a bundled AP or PA demo radiograph"
+                      examples={SCREENING_EXAMPLE_OPTIONS}
+                      onSelect={handleExampleSelect}
+                    />
+                  ) : null}
+
+                  {showQueueButton ? (
                     <Button
-                      {...props}
-                      leftSection={<IconUpload size={16} />}
+                      leftSection={<IconListDetails size={16} />}
+                      onClick={onOpenQueue}
+                      size="xs"
+                      variant="light"
+                    >
+                      Queue ({itemCount})
+                    </Button>
+                  ) : null}
+
+                  {isProcessing ? (
+                    <Button
+                      color="gray"
+                      leftSection={<IconSquare size={14} />}
+                      onClick={onStop}
                       size="xs"
                       variant="default"
                     >
-                      Add images
+                      Stop queue
+                    </Button>
+                  ) : (
+                    <Button
+                      disabled={queuedCount === 0}
+                      leftSection={<IconPlayerPlay size={15} />}
+                      onClick={onRun}
+                      size="xs"
+                    >
+                      {processedCount > 0 ? "Run remaining" : "Run all"}
                     </Button>
                   )}
-                </FileButton>
 
-                <ExampleSelector
-                  examples={SCREENING_EXAMPLE_OPTIONS}
-                  onSelect={handleExampleSelect}
-                  buttonLabel="Add example"
-                  description="Adds a bundled AP or PA demo radiograph"
-                />
+                  {failedCount > 0 && !isProcessing ? (
+                    <Button
+                      color="orange"
+                      leftSection={<IconRefresh size={15} />}
+                      onClick={onRetryFailed}
+                      size="xs"
+                      variant="light"
+                    >
+                      Retry failed
+                    </Button>
+                  ) : null}
 
-                {showQueueButton ? (
                   <Button
-                    leftSection={<IconListDetails size={16} />}
-                    onClick={onOpenQueue}
+                    color="red"
+                    leftSection={<IconTrash size={15} />}
+                    onClick={requestClear}
                     size="xs"
-                    variant="light"
+                    variant="subtle"
                   >
-                    Queue ({itemCount})
+                    Clear batch
                   </Button>
-                ) : null}
-
-                {isProcessing ? (
-                  <Button
-                    color="gray"
-                    leftSection={<IconSquare size={14} />}
-                    onClick={onStop}
-                    size="xs"
-                    variant="default"
-                  >
-                    Stop queue
-                  </Button>
-                ) : (
-                  <Button
-                    disabled={queuedCount === 0}
-                    leftSection={<IconPlayerPlay size={15} />}
-                    onClick={onRun}
-                    size="xs"
-                  >
-                    {processedCount > 0 ? "Run remaining" : "Run all"}
-                  </Button>
-                )}
-
-                {failedCount > 0 && !isProcessing ? (
-                  <Button
-                    color="orange"
-                    leftSection={<IconRefresh size={15} />}
-                    onClick={onRetryFailed}
-                    size="xs"
-                    variant="light"
-                  >
-                    Retry failed
-                  </Button>
-                ) : null}
-
-                <Button
-                  color="red"
-                  leftSection={<IconTrash size={15} />}
-                  onClick={requestClear}
-                  size="xs"
-                  variant="subtle"
-                >
-                  Clear batch
-                </Button>
+                </Group>
               </Group>
-            </Group>
 
-            <Progress
-              aria-label={`${processedCount} of ${itemCount} images processed`}
-              radius="xl"
-              size="sm"
-              value={progressPercent}
-            />
+              <Progress
+                aria-label={`${processedCount} of ${itemCount} images processed`}
+                radius="xl"
+                size="sm"
+                value={progressPercent}
+              />
 
-            <Group justify="space-between" gap="md">
-              <Text c="dimmed" size="xs">
-                {plural(itemCount, "image")} · {plural(failedCount, "failure")} ·
-                sequential processing
-              </Text>
-
-              <Group gap={4}>
-                <Text c="dimmed" mr={4} size="xs">
-                  Image {selectedIndex + 1} of {itemCount}
+              <Group gap="md" justify="space-between">
+                <Text c="dimmed" size="xs">
+                  {plural(itemCount, "image")} · {plural(failedCount, "failure")} ·
+                  sequential processing
                 </Text>
-                <Tooltip label="Previous image ([)">
-                  <ActionIcon
-                    aria-label="Previous image"
-                    disabled={itemCount < 2}
-                    onClick={onPrevious}
-                    size="sm"
-                    variant="subtle"
-                  >
-                    <IconChevronLeft size={16} />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Next image (])">
-                  <ActionIcon
-                    aria-label="Next image"
-                    disabled={itemCount < 2}
-                    onClick={onNext}
-                    size="sm"
-                    variant="subtle"
-                  >
-                    <IconChevronRight size={16} />
-                  </ActionIcon>
-                </Tooltip>
-                <Tooltip label="Next image with a morphology signal">
-                  <ActionIcon
-                    aria-label="Next image with a morphology signal"
-                    color="yellow"
-                    disabled={!hasSignalItems}
-                    onClick={onNextSignal}
-                    size="sm"
-                    variant="light"
-                  >
-                    <IconFlag size={15} />
-                  </ActionIcon>
-                </Tooltip>
+
+                <Group gap={4}>
+                  <Text c="dimmed" mr={4} size="xs">
+                    Image {selectedIndex + 1} of {itemCount}
+                  </Text>
+                  <Tooltip label="Previous image ([)">
+                    <ActionIcon
+                      aria-label="Previous image"
+                      disabled={itemCount < 2}
+                      onClick={onPrevious}
+                      size="sm"
+                      variant="subtle"
+                    >
+                      <IconChevronLeft size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Next image (])">
+                    <ActionIcon
+                      aria-label="Next image"
+                      disabled={itemCount < 2}
+                      onClick={onNext}
+                      size="sm"
+                      variant="subtle"
+                    >
+                      <IconChevronRight size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                  {isFrontal && onNextSignal ? (
+                    <Tooltip label="Next image with a morphology signal">
+                      <ActionIcon
+                        aria-label="Next image with a morphology signal"
+                        color="yellow"
+                        disabled={!hasSignalItems}
+                        onClick={onNextSignal}
+                        size="sm"
+                        variant="light"
+                      >
+                        <IconFlag size={15} />
+                      </ActionIcon>
+                    </Tooltip>
+                  ) : null}
+                </Group>
               </Group>
-            </Group>
             </Stack>
           </>
         )}

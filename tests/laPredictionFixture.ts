@@ -73,6 +73,31 @@ export function laPredictionFixture(): LAPredictionResponse {
       cobb_3_lines: [],
       scope: LA_COBB_SCOPE,
     },
+    anatomical_orientation_basis:
+      "image_left_assumed_anterior; image_middle_assumed_middle; image_right_assumed_posterior",
+    compression_assessment_method:
+      "six-keypoint Euclidean paired-height morphometry with adjacent references",
+    compression_assessment_scope:
+      "Research-only morphometric screening ranges; not a diagnosis or Genant semiquantitative grade.",
+    compression_assessments: [
+      {
+        assessment_status: "valid",
+        candidate_id: selected.candidate_id,
+        compression_rates: { anterior: 12.5, middle: null, posterior: -3.5 },
+        heights: { anterior: 39.1, middle: 40.5, posterior: 38.9, unit: "px" },
+        max_height_reduction: 12.5,
+        morphology: "no_significant_deformity",
+        rank: selected.rank,
+        ratios: {
+          anterior_posterior: 1.01,
+          middle_anterior: 1.04,
+          middle_posterior: 1.03,
+        },
+        reference_status: "bilateral",
+        severity: "no_significant_loss",
+        suspicious: false,
+      },
+    ],
     morphology: [],
     warnings: [],
     clinical_review_required: true,

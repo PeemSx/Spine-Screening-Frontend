@@ -23,11 +23,12 @@ import {
   queueItemHasMorphologySignal,
 } from "@/features/screening/components/PredictionQueue";
 import { UploadPanel } from "@/features/screening/components/UploadPanel";
-import { usePredictionQueue } from "@/features/screening/hooks/usePredictionQueue";
+import styles from "./ScreeningWorkspace.module.css";
 import type { ImageInfo } from "@/features/screening/api/contract";
 import type { PredictionQueueStatus } from "@/features/screening/bulk/types";
+import { useFileObjectUrl } from "@/features/screening/hooks/useFileObjectUrl";
+import { useFrontalScreeningSession } from "@/features/screening/session/FrontalScreeningSession";
 import type { PredictionStatus } from "@/features/screening/types";
-import styles from "./ScreeningWorkspace.module.css";
 
 function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -120,10 +121,11 @@ function OriginalImagePanel({
 }
 
 export default function FrontalPage() {
-  const queue = usePredictionQueue();
+  const queue = useFrontalScreeningSession();
   const [queueDrawerOpen, setQueueDrawerOpen] = useState(false);
   const isWideQueueLayout = useMediaQuery("(min-width: 100em)", false);
   const selectedItem = queue.selectedItem;
+  const selectedImageUrl = useFileObjectUrl(selectedItem?.file ?? null);
   const hasMultipleItems = queue.items.length > 1;
   const selectedIndex = Math.max(
     0,
@@ -292,20 +294,20 @@ export default function FrontalPage() {
             </Alert>
           ) : null}
 
-          {selectedItem ? (
+          {selectedItem && selectedImageUrl ? (
             <Grid gutter="lg" align="flex-start">
               <Grid.Col span={{ base: 12, md: 6, xl: 4 }}>
                 <OriginalImagePanel
                   file={selectedItem.file}
                   imageInfo={selectedResult?.image ?? null}
-                  imageUrl={selectedItem.imageUrl}
+                  imageUrl={selectedImageUrl}
                 />
               </Grid.Col>
               <Grid.Col span={{ base: 12, md: 6, xl: 4 }}>
                 <PredictionOverlay
                   cobb={selectedResult?.cobb ?? null}
                   image={selectedResult?.image ?? null}
-                  imageUrl={selectedItem.imageUrl}
+                  imageUrl={selectedImageUrl}
                   morphology={selectedResult?.morphology ?? []}
                   onSelectCandidate={queue.setSelectedCandidateId}
                   selectedCandidateId={selectedItem.selectedCandidateId}

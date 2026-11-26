@@ -77,6 +77,17 @@ export const LA_COBB_SCOPE =
   "LA geometry agreement calculated from the four outer landmarks; not a clinical AP/PA Cobb measurement." as const;
 
 export type LAModelInfoResponse = ApiSchemas["LAModelInfoResponse"];
+export type LACompressionAssessment = ApiSchemas["LACompressionAssessment"];
+export type LACompressionHeights = ApiSchemas["LACompressionHeights"];
+export type LACompressionRatios = ApiSchemas["LACompressionRatios"];
+export type LACompressionRates = ApiSchemas["LACompressionRates"];
+
+export const LA_ORIENTATION_BASIS =
+  "image_left_assumed_anterior; image_middle_assumed_middle; image_right_assumed_posterior" as const;
+export const LA_COMPRESSION_METHOD =
+  "six-keypoint Euclidean paired-height morphometry with adjacent references" as const;
+export const LA_COMPRESSION_SCOPE =
+  "Research-only morphometric screening ranges; not a diagnosis or Genant semiquantitative grade." as const;
 
 export interface LACobbResult extends CobbResult {
   scope: typeof LA_COBB_SCOPE;
@@ -96,6 +107,10 @@ export interface LAPredictionResponse {
   selected_vertebrae: LAVertebraPrediction[];
   cobb: LACobbResult;
   morphology: MorphologyFeature[];
+  anatomical_orientation_basis?: typeof LA_ORIENTATION_BASIS;
+  compression_assessment_method?: typeof LA_COMPRESSION_METHOD;
+  compression_assessment_scope?: typeof LA_COMPRESSION_SCOPE;
+  compression_assessments?: LACompressionAssessment[];
   warnings: string[];
   clinical_review_required: true;
   disclaimer: string;
@@ -214,6 +229,77 @@ function isLACobbResult(value: unknown): value is LACobbResult {
     isRecord(value) &&
     value.scope === LA_COBB_SCOPE &&
     isCobbResult(value)
+  );
+}
+
+const compressionMorphologies = [
+  "no_significant_deformity",
+  "wedge",
+  "biconcave",
+  "crush",
+  "indeterminate",
+] as const;
+const compressionSeverities = [
+  "no_significant_loss",
+  "mild_range",
+  "moderate_range",
+  "severe_range",
+  "indeterminate",
+] as const;
+const compressionReferenceStatuses = ["bilateral", "single", "unavailable"] as const;
+const compressionAssessmentStatuses = ["valid", "indeterminate"] as const;
+
+function isNullableCompressionNumber(value: unknown): value is number | null {
+  return isNullableFiniteNumber(value);
+}
+
+function isCompressionAssessment(value: unknown): value is LACompressionAssessment {
+  if (!isRecord(value)) return false;
+  const heights = value.heights;
+  const ratios = value.ratios;
+  const rates = value.compression_rates;
+  return (
+    isInteger(value.candidate_id) &&
+    value.candidate_id >= 0 &&
+    isInteger(value.rank) &&
+    value.rank >= 1 &&
+    compressionAssessmentStatuses.includes(value.assessment_status as never) &&
+    compressionMorphologies.includes(value.morphology as never) &&
+    compressionSeverities.includes(value.severity as never) &&
+    compressionReferenceStatuses.includes(value.reference_status as never) &&
+    typeof value.suspicious === "boolean" &&
+    isNullableCompressionNumber(value.max_height_reduction) &&
+    isRecord(heights) &&
+    heights.unit === "px" &&
+    isNullableCompressionNumber(heights.anterior) &&
+    isNullableCompressionNumber(heights.middle) &&
+    isNullableCompressionNumber(heights.posterior) &&
+    isRecord(ratios) &&
+    isNullableCompressionNumber(ratios.anterior_posterior) &&
+    isNullableCompressionNumber(ratios.middle_anterior) &&
+    isNullableCompressionNumber(ratios.middle_posterior) &&
+    isRecord(rates) &&
+    isNullableCompressionNumber(rates.anterior) &&
+    isNullableCompressionNumber(rates.middle) &&
+    isNullableCompressionNumber(rates.posterior)
+  );
+}
+
+function hasValidCompressionExtension(value: Record<string, unknown>): boolean {
+  const extension = [
+    value.anatomical_orientation_basis,
+    value.compression_assessment_method,
+    value.compression_assessment_scope,
+    value.compression_assessments,
+  ];
+  if (extension.every((field) => field === undefined)) return true;
+
+  return (
+    value.anatomical_orientation_basis === LA_ORIENTATION_BASIS &&
+    value.compression_assessment_method === LA_COMPRESSION_METHOD &&
+    value.compression_assessment_scope === LA_COMPRESSION_SCOPE &&
+    Array.isArray(value.compression_assessments) &&
+    value.compression_assessments.every(isCompressionAssessment)
   );
 }
 
@@ -359,6 +445,7 @@ export function isLAPredictionResponse(
     isLACobbResult(value.cobb) &&
     Array.isArray(value.morphology) &&
     value.morphology.every(isMorphologyFeature) &&
+    hasValidCompressionExtension(value) &&
     Array.isArray(value.warnings) &&
     value.warnings.every((warning) => typeof warning === "string") &&
     value.clinical_review_required === true &&

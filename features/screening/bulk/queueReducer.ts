@@ -1,9 +1,9 @@
 import type {
   PredictionQueueItem,
+  PredictionQueueResult,
   PredictionQueueState,
 } from "./types";
 import type { ScreeningApiError } from "../api/errors";
-import type { PredictionResponse } from "../api/contract";
 
 export const initialPredictionQueueState: PredictionQueueState = {
   items: [],
@@ -12,8 +12,10 @@ export const initialPredictionQueueState: PredictionQueueState = {
   isProcessing: false,
 };
 
-export type PredictionQueueAction =
-  | { type: "add"; items: PredictionQueueItem[] }
+export type PredictionQueueAction<
+  Result extends PredictionQueueResult = PredictionQueueResult,
+> =
+  | { type: "add"; items: PredictionQueueItem<Result>[] }
   | { type: "remove"; itemId: string }
   | { type: "select"; itemId: string }
   | {
@@ -26,7 +28,7 @@ export type PredictionQueueAction =
   | {
       type: "complete_item";
       itemId: string;
-      result: PredictionResponse;
+      result: Result;
     }
   | { type: "fail_item"; itemId: string; error: ScreeningApiError }
   | { type: "retry_failed" }
@@ -34,10 +36,12 @@ export type PredictionQueueAction =
   | { type: "finish_processing" }
   | { type: "clear" };
 
-function replaceItem(
-  state: PredictionQueueState,
+function replaceItem<Result extends PredictionQueueResult>(
+  state: PredictionQueueState<Result>,
   itemId: string,
-  update: (item: PredictionQueueItem) => PredictionQueueItem,
+  update: (
+    item: PredictionQueueItem<Result>,
+  ) => PredictionQueueItem<Result>,
 ) {
   let changed = false;
   const items = state.items.map((item) => {
@@ -48,8 +52,8 @@ function replaceItem(
   return changed ? items : state.items;
 }
 
-function selectedIdAfterRemoval(
-  state: PredictionQueueState,
+function selectedIdAfterRemoval<Result extends PredictionQueueResult>(
+  state: PredictionQueueState<Result>,
   removedIndex: number,
 ) {
   if (state.selectedItemId !== state.items[removedIndex]?.id) {
@@ -61,10 +65,10 @@ function selectedIdAfterRemoval(
   return nextItem?.id ?? previousItem?.id ?? null;
 }
 
-export function predictionQueueReducer(
-  state: PredictionQueueState,
-  action: PredictionQueueAction,
-): PredictionQueueState {
+export function predictionQueueReducer<Result extends PredictionQueueResult>(
+  state: PredictionQueueState<Result>,
+  action: PredictionQueueAction<Result>,
+): PredictionQueueState<Result> {
   switch (action.type) {
     case "add": {
       if (action.items.length === 0) return state;
@@ -210,6 +214,6 @@ export function predictionQueueReducer(
     }
 
     case "clear":
-      return initialPredictionQueueState;
+      return initialPredictionQueueState as PredictionQueueState<Result>;
   }
 }

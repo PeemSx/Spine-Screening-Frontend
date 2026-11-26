@@ -11,6 +11,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createPrediction } from "@/features/screening/api/client";
 import type { PredictionResponse } from "@/features/screening/api/contract";
+import { FrontalScreeningSessionProvider } from "@/features/screening/session/FrontalScreeningSession";
 import {
   imageFile,
   predictionFixture,
@@ -52,7 +53,9 @@ function configureViewport(wide: boolean) {
 function renderFrontalPage() {
   return render(
     <MantineProvider>
-      <FrontalPage />
+      <FrontalScreeningSessionProvider>
+        <FrontalPage />
+      </FrontalScreeningSessionProvider>
     </MantineProvider>,
   );
 }

@@ -33,6 +33,50 @@ describe("LA API contract", () => {
     expect(isLAPredictionResponse(missingMiddle)).toBe(false);
   });
 
+  it("requires complete compression scope and assessment rows", () => {
+    const response = laPredictionFixture();
+    expect(response.compression_assessments?.[0].assessment_status).toBe("valid");
+    expect(isLAPredictionResponse(response)).toBe(true);
+
+    const malformed = structuredClone(response);
+    delete (malformed.compression_assessments?.[0].heights as { unit?: string }).unit;
+    expect(isLAPredictionResponse(malformed)).toBe(false);
+
+    const invalidRank = structuredClone(response);
+    invalidRank.compression_assessments![0].rank = 0;
+    expect(isLAPredictionResponse(invalidRank)).toBe(false);
+
+    const indeterminate = structuredClone(response);
+    indeterminate.compression_assessments![0] = {
+      ...indeterminate.compression_assessments![0],
+      assessment_status: "indeterminate",
+      compression_rates: { anterior: null, middle: null, posterior: null },
+      heights: { anterior: null, middle: null, posterior: null, unit: "px" },
+      max_height_reduction: null,
+      morphology: "indeterminate",
+      reference_status: "unavailable",
+      ratios: {
+        anterior_posterior: null,
+        middle_anterior: null,
+        middle_posterior: null,
+      },
+      severity: "indeterminate",
+      suspicious: true,
+    };
+    expect(isLAPredictionResponse(indeterminate)).toBe(true);
+
+    const legacy = structuredClone(response);
+    delete legacy.anatomical_orientation_basis;
+    delete legacy.compression_assessment_method;
+    delete legacy.compression_assessment_scope;
+    delete legacy.compression_assessments;
+    expect(isLAPredictionResponse(legacy)).toBe(true);
+
+    const partialExtension = structuredClone(legacy);
+    partialExtension.compression_assessments = [];
+    expect(isLAPredictionResponse(partialExtension)).toBe(false);
+  });
+
   it("posts the image field to the LA endpoint", async () => {
     const response = laPredictionFixture();
     const fetchMock = vi.fn().mockResolvedValue(

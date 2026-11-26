@@ -27,11 +27,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { PredictionQueueItem } from "../bulk/types";
+import type {
+  PredictionQueueItem,
+  PredictionQueueResult,
+} from "../bulk/types";
 import {
   analyzeMorphology,
   type MorphologySignalStatus,
 } from "../morphology/analysis";
+import { useFileObjectUrl } from "../hooks/useFileObjectUrl";
 
 type QueueFilter =
   | "all"
@@ -49,9 +53,10 @@ export interface PredictionQueueItemSummary {
 }
 
 interface PredictionQueueProps {
-  items: readonly PredictionQueueItem[];
+  items: readonly PredictionQueueItem<PredictionQueueResult>[];
   selectedItemId: string | null;
   onSelectItem: (itemId: string) => void;
+  projection?: "frontal" | "lateral";
 }
 
 const FILTER_OPTIONS: Array<{ label: string; value: QueueFilter }> = [
@@ -61,6 +66,10 @@ const FILTER_OPTIONS: Array<{ label: string; value: QueueFilter }> = [
   { label: "Warnings", value: "warnings" },
   { label: "Failed", value: "failed" },
 ];
+
+const LATERAL_FILTER_OPTIONS = FILTER_OPTIONS.filter(({ value }) =>
+  ["all", "warnings", "failed"].includes(value),
+);
 
 const SIGNAL_STATUSES = new Set<MorphologySignalStatus>([
   "borderline_morphology_signal",
@@ -106,7 +115,23 @@ export function queueItemHasMorphologySignal(item: PredictionQueueItem) {
   return summarizeQueueItem(item).signalCount > 0;
 }
 
-function StatusIndicator({ item }: { item: PredictionQueueItem }) {
+function summarizeLateralQueueItem(
+  item: PredictionQueueItem<PredictionQueueResult>,
+): PredictionQueueItemSummary {
+  return {
+    vertebraCount: item.result?.selected_vertebrae.length ?? 0,
+    signalCount: 0,
+    lowReliabilityCount: 0,
+    notAssessableCount: 0,
+    warningCount: item.result?.warnings.length ?? 0,
+  };
+}
+
+function StatusIndicator({
+  item,
+}: {
+  item: PredictionQueueItem<PredictionQueueResult>;
+}) {
   const content: Record<
     PredictionQueueItem["status"],
     { color: string; icon: ReactNode; label: string }
@@ -146,14 +171,18 @@ function QueueItemRow({
   isSelected,
   onSelect,
   rowRef,
+  showMorphologySummary,
   summary,
 }: {
-  item: PredictionQueueItem;
+  item: PredictionQueueItem<PredictionQueueResult>;
   isSelected: boolean;
   onSelect: () => void;
   rowRef: (element: HTMLButtonElement | null) => void;
   summary: PredictionQueueItemSummary;
+  showMorphologySummary: boolean;
 }) {
+  const imageUrl = useFileObjectUrl(item.file);
+
   return (
     <UnstyledButton
       aria-pressed={isSelected}
@@ -190,7 +219,7 @@ function QueueItemRow({
               fit="contain"
               h="100%"
               loading="lazy"
-              src={item.imageUrl}
+              src={imageUrl ?? undefined}
               w="100%"
             />
           </Box>
@@ -209,20 +238,21 @@ function QueueItemRow({
               ) : null}
             </Group>
 
-            {item.status === "success" ? (
+            {item.status === "success" &&
+            (showMorphologySummary || summary.warningCount > 0) ? (
               <Group gap={5} wrap="wrap">
-                {summary.signalCount > 0 ? (
+                {showMorphologySummary && summary.signalCount > 0 ? (
                   <Badge color="yellow" size="xs" variant="light">
                     {summary.signalCount} signal
                     {summary.signalCount === 1 ? "" : "s"}
                   </Badge>
                 ) : null}
-                {summary.lowReliabilityCount > 0 ? (
+                {showMorphologySummary && summary.lowReliabilityCount > 0 ? (
                   <Badge color="orange" size="xs" variant="dot">
                     {summary.lowReliabilityCount} low reliability
                   </Badge>
                 ) : null}
-                {summary.notAssessableCount > 0 ? (
+                {showMorphologySummary && summary.notAssessableCount > 0 ? (
                   <Badge color="gray" size="xs" variant="dot">
                     {summary.notAssessableCount} not assessable
                   </Badge>
@@ -269,16 +299,26 @@ export function PredictionQueue({
   items,
   selectedItemId,
   onSelectItem,
+  projection = "frontal",
 }: PredictionQueueProps) {
   const [filter, setFilter] = useState<QueueFilter>("all");
   const scrollViewportRef = useRef<HTMLDivElement>(null);
   const itemRows = useRef(new Map<string, HTMLButtonElement>());
+  const showMorphologySummary = projection === "frontal";
+  const filterOptions = showMorphologySummary
+    ? FILTER_OPTIONS
+    : LATERAL_FILTER_OPTIONS;
   const summaries = useMemo(
     () =>
       new Map(
-        items.map((item) => [item.id, summarizeQueueItem(item)] as const),
+        items.map((item) => [
+          item.id,
+          showMorphologySummary
+            ? summarizeQueueItem(item as PredictionQueueItem)
+            : summarizeLateralQueueItem(item),
+        ] as const),
       ),
-    [items],
+    [items, showMorphologySummary],
   );
 
   const filteredItems = items.filter((item) => {
@@ -315,14 +355,18 @@ export function PredictionQueue({
     <Paper h="100%" p="sm" radius="md" shadow="sm" withBorder>
       <Stack gap="sm" h="100%">
         <Group justify="space-between">
-          <Title order={4}>Prediction queue</Title>
+          <Title order={4}>
+            {projection === "lateral"
+              ? "Lateral prediction queue"
+              : "Prediction queue"}
+          </Title>
           <Badge variant="light">{items.length} images</Badge>
         </Group>
 
         <Select
           allowDeselect={false}
           aria-label="Filter prediction queue"
-          data={FILTER_OPTIONS}
+          data={filterOptions}
           onChange={(value) => setFilter((value as QueueFilter | null) ?? "all")}
           size="xs"
           value={filter}
@@ -357,6 +401,7 @@ export function PredictionQueue({
                       warningCount: 0,
                     }
                   }
+                  showMorphologySummary={showMorphologySummary}
                 />
               ))}
             </Stack>

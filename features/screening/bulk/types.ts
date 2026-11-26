@@ -1,5 +1,8 @@
 import type { ScreeningApiError } from "../api/errors";
-import type { PredictionResponse } from "../api/contract";
+import type {
+  LAPredictionResponse,
+  PredictionResponse,
+} from "../api/contract";
 
 export const MAX_PREDICTION_QUEUE_ITEMS = 20;
 
@@ -9,19 +12,26 @@ export type PredictionQueueStatus =
   | "success"
   | "error";
 
-export interface PredictionQueueItem {
+export type PredictionQueueResult =
+  | PredictionResponse
+  | LAPredictionResponse;
+
+export interface PredictionQueueItem<
+  Result extends PredictionQueueResult = PredictionResponse,
+> {
   id: string;
   fingerprint: string;
   file: File;
-  imageUrl: string;
   status: PredictionQueueStatus;
-  result: PredictionResponse | null;
+  result: Result | null;
   error: ScreeningApiError | null;
   selectedCandidateId: number | null;
 }
 
-export interface PredictionQueueState {
-  items: PredictionQueueItem[];
+export interface PredictionQueueState<
+  Result extends PredictionQueueResult = PredictionResponse,
+> {
+  items: PredictionQueueItem<Result>[];
   selectedItemId: string | null;
   activeItemId: string | null;
   isProcessing: boolean;
@@ -39,8 +49,10 @@ export interface PredictionFileRejection {
   message: string;
 }
 
-export interface AddFilesResult {
-  added: PredictionQueueItem[];
+export interface AddFilesResult<
+  Result extends PredictionQueueResult = PredictionResponse,
+> {
+  added: PredictionQueueItem<Result>[];
   rejected: PredictionFileRejection[];
 }
 

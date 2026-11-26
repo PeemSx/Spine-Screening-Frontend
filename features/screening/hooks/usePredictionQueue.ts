@@ -29,8 +29,10 @@ import {
   type PredictionFileRejection,
   type PredictionQueueItem,
   type PredictionQueueProgress,
+  type PredictionQueueResult,
   type PredictionQueueState,
 } from "../bulk/types";
+import type { PredictionResponse } from "../api/contract";
 
 let fallbackId = 0;
 
@@ -64,8 +66,8 @@ function rejectionForFile(file: File): PredictionFileRejection | null {
   return null;
 }
 
-function progressFromItems(
-  items: readonly PredictionQueueItem[],
+function progressFromItems<Result extends PredictionQueueResult>(
+  items: readonly PredictionQueueItem<Result>[],
 ): PredictionQueueProgress {
   const progress = items.reduce(
     (counts, item) => {
@@ -91,12 +93,24 @@ function progressFromItems(
  * Owns an in-memory prediction queue around the existing single-image API.
  * Calling `runAll` is required to start new queued work.
  */
-export function usePredictionQueue() {
+type PredictionRequest<Result extends PredictionQueueResult> = (
+  file: File,
+  options?: { signal?: AbortSignal },
+) => Promise<Result>;
+
+export function usePredictionQueue<
+  Result extends PredictionQueueResult = PredictionResponse,
+>(
+  predictionRequest: PredictionRequest<Result> =
+    createPrediction as PredictionRequest<Result>,
+) {
+  const initialState =
+    initialPredictionQueueState as PredictionQueueState<Result>;
   const [state, reactDispatch] = useReducer(
-    predictionQueueReducer,
-    initialPredictionQueueState,
+    predictionQueueReducer<Result>,
+    initialState,
   );
-  const stateRef = useRef<PredictionQueueState>(initialPredictionQueueState);
+  const stateRef = useRef<PredictionQueueState<Result>>(initialState);
   const controllerRef = useRef<AbortController | null>(null);
   const sequenceRef = useRef(0);
   const mountedRef = useRef(true);
@@ -106,7 +120,7 @@ export function usePredictionQueue() {
    * stream. This lets a file added while a request is pending be observed by
    * the next worker iteration without waiting for another render.
    */
-  const commit = useCallback((action: PredictionQueueAction) => {
+  const commit = useCallback((action: PredictionQueueAction<Result>) => {
     stateRef.current = predictionQueueReducer(stateRef.current, action);
     reactDispatch(action);
   }, []);
@@ -137,7 +151,7 @@ export function usePredictionQueue() {
         }, SCREENING_REQUEST_TIMEOUT_MS);
 
         try {
-          const result = await createPrediction(item.file, {
+          const result = await predictionRequest(item.file, {
             signal: controller.signal,
           });
           if (
@@ -177,7 +191,7 @@ export function usePredictionQueue() {
         commit({ type: "finish_processing" });
       }
     },
-    [commit],
+    [commit, predictionRequest],
   );
 
   const startWorker = useCallback(
@@ -202,8 +216,8 @@ export function usePredictionQueue() {
   );
 
   const addFiles = useCallback(
-    (files: readonly File[]): AddFilesResult => {
-      const added: PredictionQueueItem[] = [];
+    (files: readonly File[]): AddFilesResult<Result> => {
+      const added: PredictionQueueItem<Result>[] = [];
       const rejected: PredictionFileRejection[] = [];
       const fingerprints = new Set(
         stateRef.current.items.map(({ fingerprint }) => fingerprint),
@@ -236,11 +250,10 @@ export function usePredictionQueue() {
           continue;
         }
 
-        const item: PredictionQueueItem = {
+        const item: PredictionQueueItem<Result> = {
           id: createQueueItemId(),
           fingerprint,
           file,
-          imageUrl: URL.createObjectURL(file),
           status: "queued",
           result: null,
           error: null,
@@ -263,7 +276,6 @@ export function usePredictionQueue() {
     (itemId: string) => {
       const item = stateRef.current.items.find(({ id }) => id === itemId);
       if (!item || item.status === "running") return false;
-      URL.revokeObjectURL(item.imageUrl);
       commit({ type: "remove", itemId });
       return true;
     },
@@ -326,9 +338,6 @@ export function usePredictionQueue() {
     sequenceRef.current += 1;
     controllerRef.current?.abort();
     controllerRef.current = null;
-    for (const item of stateRef.current.items) {
-      URL.revokeObjectURL(item.imageUrl);
-    }
     commit({ type: "clear" });
   }, [commit]);
 
@@ -338,9 +347,6 @@ export function usePredictionQueue() {
       mountedRef.current = false;
       sequenceRef.current += 1;
       controllerRef.current?.abort();
-      for (const item of stateRef.current.items) {
-        URL.revokeObjectURL(item.imageUrl);
-      }
     };
   }, []);
 
@@ -372,5 +378,9 @@ export function usePredictionQueue() {
 }
 
 export type UsePredictionQueueResult = ReturnType<
-  typeof usePredictionQueue
+  typeof usePredictionQueue<PredictionResponse>
 >;
+
+export type UseTypedPredictionQueueResult<
+  Result extends PredictionQueueResult,
+> = ReturnType<typeof usePredictionQueue<Result>>;

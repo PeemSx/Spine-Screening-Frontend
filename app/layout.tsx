@@ -2,6 +2,7 @@ import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/c
 import '@mantine/core/styles.css';
 import '@mantine/dropzone/styles.css';
 import ClientNavBar from '@/components/layout/ClientNavBar';
+import { ScreeningSessionProvider } from '@/features/screening/session/ScreeningSessionProvider';
 
 export const metadata = {
   title: 'Spine Opportunistic Screening',
@@ -22,8 +23,10 @@ export default function RootLayout({
       </head>
       <body>
         <MantineProvider withGlobalClasses={false}>
-          <ClientNavBar />
-          {children}
+          <ScreeningSessionProvider>
+            <ClientNavBar />
+            {children}
+          </ScreeningSessionProvider>
         </MantineProvider>
       </body>
     </html>

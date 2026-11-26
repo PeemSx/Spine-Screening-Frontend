@@ -94,7 +94,6 @@ export function queueItem(
     id,
     fingerprint: `${id}-fingerprint`,
     file,
-    imageUrl: `blob:${id}`,
     status: "queued",
     result: null,
     error: null,

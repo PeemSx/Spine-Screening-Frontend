@@ -62,7 +62,7 @@ describe("usePredictionQueue", () => {
     ]);
     expect(result.current.items).toHaveLength(20);
     expect(result.current.selectedItemId).toBe(result.current.items[19].id);
-    expect(URL.createObjectURL).toHaveBeenCalledTimes(20);
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it("runs predictions strictly one at a time", async () => {
@@ -214,8 +214,8 @@ describe("usePredictionQueue", () => {
     expect(result.current.items[1].status).toBe("queued");
   });
 
-  it("retains selected candidates by case and cleans up object URLs", () => {
-    const { result, unmount } = renderHook(() => usePredictionQueue());
+  it("retains selected candidates by case while removing and clearing files", () => {
+    const { result } = renderHook(() => usePredictionQueue());
     act(() => {
       result.current.addFiles([
         imageFile("first.png"),
@@ -238,19 +238,13 @@ describe("usePredictionQueue", () => {
     act(() => {
       result.current.removeItem(first.id);
     });
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith(first.imageUrl);
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].id).toBe(second.id);
 
-    const secondUrl = second.imageUrl;
     act(() => {
       result.current.clear();
     });
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith(secondUrl);
-
-    act(() => {
-      result.current.addFiles([imageFile("unmount.png")]);
-    });
-    const unmountUrl = result.current.items[0].imageUrl;
-    unmount();
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith(unmountUrl);
+    expect(result.current.items).toHaveLength(0);
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
   });
 });

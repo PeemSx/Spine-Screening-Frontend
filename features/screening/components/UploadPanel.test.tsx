@@ -161,4 +161,28 @@ describe("UploadPanel", () => {
     await waitFor(() => expect(onAddFiles).toHaveBeenCalledTimes(1));
     expect(onAddFiles).toHaveBeenCalledWith([droppedFile]);
   });
+
+  it("uses lateral batch copy without frontal-only example or signal controls", () => {
+    renderUploadPanel(
+      uploadPanelProps({
+        hasCompletedResults: true,
+        hasSignalItems: true,
+        itemCount: 2,
+        onNextSignal: vi.fn(),
+        processedCount: 2,
+        projection: "lateral",
+        queuedCount: 0,
+        showQueueButton: true,
+      }),
+    );
+
+    expect(
+      screen.getByText(/drop more lateral radiographs here/i),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Queue (2)" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /example/i })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /morphology signal/i }),
+    ).toBeNull();
+  });
 });

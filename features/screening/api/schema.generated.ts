@@ -248,6 +248,76 @@ export interface components {
             vertebra_count: number;
         };
         /**
+         * LACompressionAssessment
+         * @description Research morphometry for one selected candidate; no vertebral level is inferred.
+         */
+        LACompressionAssessment: {
+            /**
+             * Assessment Status
+             * @enum {string}
+             */
+            assessment_status: "valid" | "indeterminate";
+            /** Candidate Id */
+            candidate_id: number;
+            compression_rates: components["schemas"]["LACompressionRates"];
+            heights: components["schemas"]["LACompressionHeights"];
+            /** Max Height Reduction */
+            max_height_reduction?: number | null;
+            /**
+             * Morphology
+             * @enum {string}
+             */
+            morphology: "no_significant_deformity" | "wedge" | "biconcave" | "crush" | "indeterminate";
+            /** Rank */
+            rank: number;
+            ratios: components["schemas"]["LACompressionRatios"];
+            /**
+             * Reference Status
+             * @enum {string}
+             */
+            reference_status: "bilateral" | "single" | "unavailable";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "no_significant_loss" | "mild_range" | "moderate_range" | "severe_range" | "indeterminate";
+            /** Suspicious */
+            suspicious: boolean;
+        };
+        /** LACompressionHeights */
+        LACompressionHeights: {
+            /** Anterior */
+            anterior?: number | null;
+            /** Middle */
+            middle?: number | null;
+            /** Posterior */
+            posterior?: number | null;
+            /**
+             * Unit
+             * @default px
+             * @constant
+             */
+            unit: "px";
+        };
+        /** LACompressionRates */
+        LACompressionRates: {
+            /** Anterior */
+            anterior?: number | null;
+            /** Middle */
+            middle?: number | null;
+            /** Posterior */
+            posterior?: number | null;
+        };
+        /** LACompressionRatios */
+        LACompressionRatios: {
+            /** Anterior Posterior */
+            anterior_posterior?: number | null;
+            /** Middle Anterior */
+            middle_anterior?: number | null;
+            /** Middle Posterior */
+            middle_posterior?: number | null;
+        };
+        /**
          * LAModelInfoResponse
          * @description Safe metadata for the deployed LA six-keypoint model.
          */
@@ -289,12 +359,32 @@ export interface components {
          */
         LAPredictionResponse: {
             /**
+             * Anatomical Orientation Basis
+             * @default image_left_assumed_anterior; image_middle_assumed_middle; image_right_assumed_posterior
+             * @constant
+             */
+            anatomical_orientation_basis: "image_left_assumed_anterior; image_middle_assumed_middle; image_right_assumed_posterior";
+            /**
              * Clinical Review Required
              * @default true
              * @constant
              */
             clinical_review_required: true;
             cobb: components["schemas"]["LACobbResult"];
+            /**
+             * Compression Assessment Method
+             * @default six-keypoint Euclidean paired-height morphometry with adjacent references
+             * @constant
+             */
+            compression_assessment_method: "six-keypoint Euclidean paired-height morphometry with adjacent references";
+            /**
+             * Compression Assessment Scope
+             * @default Research-only morphometric screening ranges; not a diagnosis or Genant semiquantitative grade.
+             * @constant
+             */
+            compression_assessment_scope: "Research-only morphometric screening ranges; not a diagnosis or Genant semiquantitative grade.";
+            /** Compression Assessments */
+            compression_assessments?: components["schemas"]["LACompressionAssessment"][];
             /**
              * Coordinate Origin
              * @default top_left

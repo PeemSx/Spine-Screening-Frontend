@@ -260,6 +260,225 @@
         "title": "LACobbResult",
         "type": "object"
       },
+      "LACompressionAssessment": {
+        "additionalProperties": false,
+        "description": "Research morphometry for one selected candidate; no vertebral level is inferred.",
+        "properties": {
+          "assessment_status": {
+            "enum": [
+              "valid",
+              "indeterminate"
+            ],
+            "title": "Assessment Status",
+            "type": "string"
+          },
+          "candidate_id": {
+            "minimum": 0.0,
+            "title": "Candidate Id",
+            "type": "integer"
+          },
+          "compression_rates": {
+            "$ref": "#/components/schemas/LACompressionRates"
+          },
+          "heights": {
+            "$ref": "#/components/schemas/LACompressionHeights"
+          },
+          "max_height_reduction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Height Reduction"
+          },
+          "morphology": {
+            "enum": [
+              "no_significant_deformity",
+              "wedge",
+              "biconcave",
+              "crush",
+              "indeterminate"
+            ],
+            "title": "Morphology",
+            "type": "string"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "ratios": {
+            "$ref": "#/components/schemas/LACompressionRatios"
+          },
+          "reference_status": {
+            "enum": [
+              "bilateral",
+              "single",
+              "unavailable"
+            ],
+            "title": "Reference Status",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "no_significant_loss",
+              "mild_range",
+              "moderate_range",
+              "severe_range",
+              "indeterminate"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "suspicious": {
+            "title": "Suspicious",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "rank",
+          "candidate_id",
+          "heights",
+          "ratios",
+          "compression_rates",
+          "reference_status",
+          "morphology",
+          "severity",
+          "suspicious",
+          "assessment_status"
+        ],
+        "title": "LACompressionAssessment",
+        "type": "object"
+      },
+      "LACompressionHeights": {
+        "additionalProperties": false,
+        "properties": {
+          "anterior": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anterior"
+          },
+          "middle": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Middle"
+          },
+          "posterior": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posterior"
+          },
+          "unit": {
+            "const": "px",
+            "default": "px",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "title": "LACompressionHeights",
+        "type": "object"
+      },
+      "LACompressionRates": {
+        "additionalProperties": false,
+        "properties": {
+          "anterior": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anterior"
+          },
+          "middle": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Middle"
+          },
+          "posterior": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Posterior"
+          }
+        },
+        "title": "LACompressionRates",
+        "type": "object"
+      },
+      "LACompressionRatios": {
+        "additionalProperties": false,
+        "properties": {
+          "anterior_posterior": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anterior Posterior"
+          },
+          "middle_anterior": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Middle Anterior"
+          },
+          "middle_posterior": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Middle Posterior"
+          }
+        },
+        "title": "LACompressionRatios",
+        "type": "object"
+      },
       "LAModelInfoResponse": {
         "additionalProperties": false,
         "description": "Safe metadata for the deployed LA six-keypoint model.",
@@ -363,6 +582,12 @@
         "additionalProperties": false,
         "description": "Complete stateless result for one lateral radiograph.",
         "properties": {
+          "anatomical_orientation_basis": {
+            "const": "image_left_assumed_anterior; image_middle_assumed_middle; image_right_assumed_posterior",
+            "default": "image_left_assumed_anterior; image_middle_assumed_middle; image_right_assumed_posterior",
+            "title": "Anatomical Orientation Basis",
+            "type": "string"
+          },
           "clinical_review_required": {
             "const": true,
             "default": true,
@@ -371,6 +596,25 @@
           },
           "cobb": {
             "$ref": "#/components/schemas/LACobbResult"
+          },
+          "compression_assessment_method": {
+            "const": "six-keypoint Euclidean paired-height morphometry with adjacent references",
+            "default": "six-keypoint Euclidean paired-height morphometry with adjacent references",
+            "title": "Compression Assessment Method",
+            "type": "string"
+          },
+          "compression_assessment_scope": {
+            "const": "Research-only morphometric screening ranges; not a diagnosis or Genant semiquantitative grade.",
+            "default": "Research-only morphometric screening ranges; not a diagnosis or Genant semiquantitative grade.",
+            "title": "Compression Assessment Scope",
+            "type": "string"
+          },
+          "compression_assessments": {
+            "items": {
+              "$ref": "#/components/schemas/LACompressionAssessment"
+            },
+            "title": "Compression Assessments",
+            "type": "array"
           },
           "coordinate_origin": {
             "const": "top_left",

@@ -21,6 +21,11 @@
   color: var(--mantine-color-yellow-light-color);
 }
 
+.compactNotice {
+  align-items: center;
+  padding-block: var(--mantine-spacing-xs);
+}
+
 .icon {
   align-items: center;
   border: 1.5px solid currentColor;
@@ -64,4 +69,44 @@
 
 .warningList li + li {
   margin-top: 4px;
+}
+
+.dismissButton,
+.actionButton {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: var(--mantine-radius-sm);
+  color: currentColor;
+  cursor: pointer;
+  display: inline-flex;
+  flex: 0 0 auto;
+  justify-content: center;
+}
+
+.dismissButton {
+  font-size: 24px;
+  height: 28px;
+  line-height: 1;
+  margin: -4px -4px 0 0;
+  width: 28px;
+}
+
+.actionButton {
+  font: inherit;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 700;
+  min-height: 28px;
+  padding: 2px var(--mantine-spacing-xs);
+}
+
+.dismissButton:hover,
+.actionButton:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.dismissButton:focus-visible,
+.actionButton:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }

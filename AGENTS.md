@@ -1,6 +1,6 @@
 <!-- GENERATED FILE. DO NOT EDIT DIRECTLY.
-Sources: workspace AGENTS.md and docs/agent-overlays/frontend.md
-source-sha256: e478a9a799d5d9952d40839340ab87c01f3e76b73d3db1294b411f4822b51f29
+Sources: workspace AGENTS.md and docs/operations/agent-overlays/frontend.md
+source-sha256: 68313c3b6c473924fdc7d7831c53e24e5debf576882899347a4e7432a3687e14
 Regenerate from the workspace root with: make sync-context
 -->
 
@@ -23,7 +23,9 @@ checkpoint tensors in prompts, task records, logs, fixtures, or documentation.
 Use progressive disclosure to conserve context:
 
 1. Read this file and the active repository's generated `AGENTS.md`.
-2. Read only the relevant root document in `docs/`.
+2. Read `docs/README.md`, then only the relevant document in `docs/reference/` or
+   `docs/operations/`; when an active work plan/task packet exists for the task, read that packet
+   too. Archive material remains opt-in and should be loaded only when explicitly needed.
 3. Inspect target files and their closest tests with `rg` or `rg --files`.
 4. Expand into adjacent modules only when a discovered dependency requires it.
 
@@ -47,6 +49,22 @@ Concurrent agents must have mutually exclusive file ownership. Serialize tasks t
 same files or public contract. For cross-stack changes, stabilize and export the backend OpenAPI
 contract before editing frontend consumers. Public API, landmark order, coordinate transforms,
 model loading, clinical wording, and cross-repository changes require independent verification.
+
+Use cost-aware model routing when the active Codex runtime supports per-agent model overrides.
+Keep planning, integration, high-risk decisions, and final review with the capable lead model
+(currently the Sol tier). Prefer the cost-efficient Luna tier at medium reasoning for bounded
+implementation tasks. Do not delegate small tasks merely to switch models, and never reduce the
+required verification because a cheaper worker performed the implementation. Routine bounded
+implementation defaults to Luna. Sol may implement directly only small integration corrections or
+work that cannot be safely bounded/high-risk.
+
+Follow the tracked work lifecycle: Discover -> Plan -> Implement -> Verify -> Archive. Keep active
+plans and task packets under `docs/work/active/`; archive completed work under
+`docs/work/archive/<year>/`, loading archive material only when explicitly needed. Before any
+automatic Luna medium-reasoning spawn, run the task-specific `make check-task` readiness gate. Give
+workers minimal context rather than a full-history fork, keep at most two concurrent workers with
+disjoint file ownership, and have Sol retain planning, integration, and final review. Sol may send
+small integration fixes to the worker; unbounded or high-risk work stays with Sol.
 
 Every delegated task must state its goal, acceptance criteria, allowed repositories and files,
 required documents, interface impact, validation commands, prohibited actions, and risks. A
@@ -74,6 +92,8 @@ durable decisions. Do not retain raw reasoning or full command logs.
 Run the narrowest relevant checks during development, then use root automation before handoff:
 
 - `make check-context` validates generated repository instructions.
+- `make check-work` validates work-plan/task-packet structure.
+- `make check-task` validates readiness for a specific task before automatic spawning.
 - `make check-contract` validates OpenAPI and generated frontend schema drift.
 - `make verify-fast` runs normal backend and frontend quality gates.
 - `make verify-all` adds production build and container checks; real-checkpoint tests remain
@@ -89,8 +109,9 @@ or verbose logs.
 
 This repository owns the Next.js screening interface, client-side queue, overlays, measurements,
 accessibility, and safe presentation of API results. When this repository is opened inside the
-coordinated workspace, read root `docs/architecture.md`, `docs/api-contracts.md`, and
-`docs/medical-safety.md` when those areas are relevant.
+coordinated workspace, read `docs/README.md`, `docs/reference/architecture.md`,
+`docs/reference/api-contracts.md`, and `docs/reference/medical-safety.md` when those areas are
+relevant.
 
 Use the `/spine-api` rewrite instead of exposing backend hosts in browser code. Types in
 `features/screening/api/schema.generated.ts` are generated from FastAPI OpenAPI and must not be
